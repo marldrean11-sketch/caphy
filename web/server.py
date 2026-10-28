@@ -2346,7 +2346,8 @@ def login():
     """Login page - Firebase Auth (email+password + Google Sign-In)."""
     if request.method == "GET":
         google_client_id = getattr(config, "GOOGLE_CLIENT_ID", "")
-        return render_template("login_dual_auth.html", google_client_id=google_client_id)
+        return render_template("login_dual_auth.html", google_client_id=google_client_id,
+                               dev_login=_dev_login_allowed())
 
     # POST: email+password login. The web dashboard has no Firebase JS SDK
     # wired in (it's server-rendered), so it verifies credentials via the
@@ -2375,14 +2376,23 @@ def login():
     if not email or not password:
         google_client_id = getattr(config, "GOOGLE_CLIENT_ID", "")
         return render_template("login_dual_auth.html",
-                             google_client_id=google_client_id,
+                             google_client_id=google_client_id, dev_login=_dev_login_allowed(),
                              error="Email and password required"), 400
+
+    if _dev_login_matches(email, password):
+        print("[CAPHY] Signed in with the LOCAL TEST ACCOUNT (caphy_dev_login.json) - "
+              "Firebase features (phone pairing, push, cloud sync) won't work in this session")
+        session["user_uid"] = "local-dev"
+        session["email"] = email
+        session["display_name"] = "Local test"
+        session.permanent = remember
+        return redirect(url_for("dashboard"))
 
     result = _firebase_rest_sign_in(email, password)
     if result.get("error"):
         google_client_id = getattr(config, "GOOGLE_CLIENT_ID", "")
         return render_template("login_dual_auth.html",
-                             google_client_id=google_client_id,
+                             google_client_id=google_client_id, dev_login=_dev_login_allowed(),
                              error=result["error"]), 401
 
     session["user_uid"] = result["uid"]
@@ -2452,6 +2462,40 @@ def _firebase_web_api_key():
         return gs["client"][0]["api_key"][0]["current_key"]
     except Exception:
         return ""
+
+
+# ---- local test account (no Firebase) ----
+# For checking the UI on a dev laptop before Firebase is set up. Turned on
+# only by creating caphy_dev_login.json in the project folder (gitignored):
+#     {"email": "you@local", "password": "something"}
+# and only ever accepted from this laptop itself (127.0.0.1 / ::1), never
+# from a phone or another machine on the Wi-Fi. Delete the file to turn it off.
+_DEV_LOGIN_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "caphy_dev_login.json")
+
+
+def _dev_login_account():
+    """(email, password) from caphy_dev_login.json, or None if absent/invalid."""
+    try:
+        with open(_DEV_LOGIN_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", ""))
+        return (email, password) if email and password else None
+    except Exception:
+        return None
+
+
+def _dev_login_allowed():
+    return _dev_login_account() is not None and request.remote_addr in ("127.0.0.1", "::1")
+
+
+def _dev_login_matches(email, password):
+    acct = _dev_login_account()
+    if not acct or request.remote_addr not in ("127.0.0.1", "::1"):
+        return False
+    return (secrets.compare_digest(email.strip().lower().encode(), acct[0].encode())
+            and secrets.compare_digest(password.encode(), acct[1].encode()))
 
 
 def _firebase_rest_sign_in(email, password):

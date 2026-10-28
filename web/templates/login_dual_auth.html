@@ -5,8 +5,45 @@
   <title>CAPHY - Sign In</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
-    body{align-items:center;justify-content:center;min-height:100vh;position:relative;background:var(--ink)}
-    @media(prefers-reduced-motion:reduce){.shield{animation:none}}
+    body{align-items:center;justify-content:center;min-height:100vh;overflow:hidden;position:relative;
+      background:radial-gradient(130% 100% at 50% 4%, #161233 0%, #0b0a1a 52%, #07060f 100%)}
+
+    /* ---- animated ambient background ---- */
+    .bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+    /* drifting gradient blobs */
+    .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;mix-blend-mode:screen}
+    .blob.b1{width:520px;height:520px;left:-120px;top:-100px;
+      background:radial-gradient(circle,#4a7fff,transparent 70%);animation:drift1 18s ease-in-out infinite}
+    .blob.b2{width:460px;height:460px;right:-140px;top:8%;
+      background:radial-gradient(circle,#8b6fff,transparent 70%);animation:drift2 22s ease-in-out infinite}
+    .blob.b3{width:600px;height:600px;left:20%;bottom:-220px;
+      background:radial-gradient(circle,#a78bfa,transparent 70%);animation:drift3 26s ease-in-out infinite}
+    @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(120px,80px) scale(1.15)}}
+    @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-100px,120px) scale(1.1)}}
+    @keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(80px,-90px) scale(1.2)}}
+
+    /* slowly rotating concentric rings behind the logo */
+    .rings{position:fixed;top:-16%;left:50%;transform:translateX(-50%);width:820px;height:820px;
+      pointer-events:none;z-index:0;opacity:.5;animation:spin 60s linear infinite}
+    .rings span{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px solid rgba(140,120,255,.16)}
+    .rings span:nth-child(1){width:820px;height:820px}
+    .rings span:nth-child(2){width:610px;height:610px;border-color:rgba(140,120,255,.22);
+      border-style:dashed;animation:spin-rev 40s linear infinite}
+    .rings span:nth-child(3){width:420px;height:420px;border-color:rgba(167,139,250,.32)}
+    .rings span:nth-child(4){width:250px;height:250px;border-color:rgba(167,139,250,.45);
+      box-shadow:0 0 70px rgba(120,110,255,.4);animation:pulse 5s ease-in-out infinite}
+    @keyframes spin{to{transform:translateX(-50%) rotate(360deg)}}
+    @keyframes spin-rev{to{transform:rotate(-360deg)}}
+    @keyframes pulse{0%,100%{box-shadow:0 0 60px rgba(120,110,255,.3)}50%{box-shadow:0 0 100px rgba(167,139,250,.55)}}
+
+
+    /* rising particles */
+    .particles{position:fixed;inset:0;z-index:0;pointer-events:none}
+    .particles i{position:absolute;bottom:-10px;width:3px;height:3px;border-radius:50%;
+      background:rgba(167,139,250,.7);box-shadow:0 0 8px rgba(120,110,255,.8);animation:rise linear infinite}
+    @keyframes rise{to{transform:translateY(-105vh);opacity:0}}
+    @media(prefers-reduced-motion:reduce){.blob,.rings,.rings span,.particles i{animation:none}}
+
 
     .wrap{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:100%;padding:24px 16px;
       animation:fadeUp .6s var(--ease) both}
@@ -24,7 +61,7 @@
     .topbrand b{display:block;font-size:30px;letter-spacing:.22em;font-weight:700;color:var(--text);padding-left:.22em}
     .topbrand small{display:block;color:var(--dim);font:500 11px var(--mono);letter-spacing:.18em;margin-top:6px}
 
-    .box{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:30px 32px;width:400px;max-width:100%}
+    .box{background:rgba(18,17,24,.86);border:1px solid var(--line2);border-radius:14px;padding:30px 32px;width:400px;max-width:100%}
     .box h2{font-size:22px;font-weight:600;text-align:center}
     .box .subtitle{color:var(--muted);font-size:13px;text-align:center;margin:4px 0 22px}
 
@@ -70,6 +107,7 @@
     .caps-hint.show{display:flex}
     .footline{text-align:center;color:var(--muted);font-size:12.5px;margin-top:22px;line-height:1.7;z-index:2;position:relative}
     .footline b{color:var(--text)}
+    .devnote{margin:-12px 0 18px;text-align:center;font:500 11px var(--mono);letter-spacing:.06em;color:var(--yellow)}
     label.fl{display:block;color:var(--muted);font-size:11px;letter-spacing:1px;margin:0 0 6px 2px}
   </style>
 </head>
@@ -144,6 +182,10 @@
   </script>
 
 
+  <div class="bg"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+  <div class="rings"><span></span><span></span><span></span><span></span></div>
+  <div class="particles" id="particles"></div>
+
   <div class="wrap">
     <div class="topbrand">
       <svg class="shield" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" aria-label="CAPHY">
@@ -172,6 +214,7 @@
       <div id="signin-form" class="form-section active">
         <h2>Sign in</h2>
         <div class="subtitle">Sign in to access your CAPHY dashboard.</div>
+        {% if dev_login %}<div class="devnote">Local test account is on &middot; this laptop only</div>{% endif %}
 
         <form id="signin-email-form" method="post" action="{{ url_for('login') }}">
           <div class="infield">
@@ -281,6 +324,32 @@
   </div>
 
   <script>
+    // spawn rising particles for the live background
+    (function(){
+      var box=document.getElementById('particles'); if(!box) return;
+      for(var i=0;i<28;i++){
+        var s=document.createElement('i');
+        s.style.left=(Math.random()*100)+'%';
+        var dur=(9+Math.random()*12);
+        s.style.animationDuration=dur+'s';
+        s.style.animationDelay=(-Math.random()*dur)+'s';
+        var sz=(2+Math.random()*3);
+        s.style.width=s.style.height=sz+'px';
+        s.style.opacity=(0.3+Math.random()*0.6);
+        box.appendChild(s);
+      }
+    })();
+
+    // subtle mouse parallax on the ambient background
+    (function(){
+      var bg=document.querySelector('.bg'), rings=document.querySelector('.rings');
+      if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+      document.addEventListener('mousemove', function(e){
+        var x=(e.clientX/window.innerWidth-0.5), y=(e.clientY/window.innerHeight-0.5);
+        if(bg) bg.style.transform='translate('+(x*22)+'px,'+(y*22)+'px)';
+        if(rings) rings.style.marginLeft=(x*14)+'px';
+      });
+    })();
     // the eye follows the cursor (it's a security camera, after all),
     // blinks now and then, and pops when tapped
     (function(){
@@ -297,6 +366,22 @@
       }, 3500+Math.random()*3000); })();
       logo.addEventListener('click', function(){
         logo.classList.remove('pop'); void logo.offsetWidth; logo.classList.add('pop');
+        // burst of sparks from the logo (original login effect)
+        var box=document.getElementById('particles'); if(!box) return;
+        for(var i=0;i<10;i++){
+          var sp=document.createElement('i');
+          sp.style.left='50%'; sp.style.bottom='auto'; sp.style.top='18%';
+          sp.style.width=sp.style.height=(3+Math.random()*3)+'px';
+          var dur=(0.8+Math.random()*0.7);
+          sp.style.animation='none';
+          sp.style.transition='transform '+dur+'s ease-out, opacity '+dur+'s';
+          box.appendChild(sp);
+          (function(el,ang,dur){requestAnimationFrame(function(){
+            var d=90+Math.random()*70;
+            el.style.transform='translate('+Math.cos(ang)*d+'px,'+Math.sin(ang)*d+'px)';
+            el.style.opacity='0';
+          }); setTimeout(function(){el.remove();},dur*1000+50);})(sp,(i/10)*Math.PI*2,dur);
+        }
       });
     })();
     function toggleForms(){

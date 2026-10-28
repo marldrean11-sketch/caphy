@@ -42,3 +42,6 @@ device.json
 
 # ---- Flask session signing key (per-install, never commit) ----
 flask_secret_key.txt
+
+# ---- local test login (dev only, never commit) ----
+caphy_dev_login.json
