@@ -5,6 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CAPHY - {{ title }}</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/caphy_favicon_64.png') }}">
+  <!-- Page transitions (View Transitions API), approved in
+       docs/motion_preview.html. Only the page body (.content) moves: old
+       fades out in 160 ms, new rises 8px and fades in over 280 ms; sidebar,
+       header and siren bar stay still (root animation off). Group size morph
+       off: pages differ in height and stretching the old snapshot looked
+       wobbly. Reduced motion turns it off - the global rule in style.css
+       can't reach ::view-transition-* pseudo-elements.
+       INLINE ON PURPOSE (the one exception to "everything in style.css"):
+       Chrome checks the opt-in the moment the new page may first paint, and
+       a linked stylesheet's rules were sometimes not registered yet - the
+       trace showed "ViewTransition opt-in disabled" ~2 ms after style.css
+       finished loading, so most navigations just cut. Inline CSS is applied
+       as soon as it's parsed, so the opt-in is always there in time.
+       rel=expect holds the new page's first paint until #pageEnd (just after
+       .content) is parsed - otherwise the new snapshot was taken before the
+       body existed and only the old page faded, the new one just cut in. -->
+  <link rel="expect" href="#pageEnd" blocking="render">
+  <style>
+    @view-transition{navigation:auto}
+    .content{view-transition-name:page}
+    ::view-transition-group(root),::view-transition-old(root),::view-transition-new(root){animation:none}
+    ::view-transition-group(page){animation:none}
+    ::view-transition-old(page){animation:vtout .16s ease-in both}
+    ::view-transition-new(page){animation:vtin .28s cubic-bezier(.2,.7,.2,1) both}
+    @keyframes vtout{to{opacity:0}}
+    @keyframes vtin{from{opacity:0;transform:translateY(8px)}}
+    @media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+  </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_ver }}">
   <script src="{{ url_for('static', filename='toast.js') }}?v={{ css_ver }}" defer></script>
 <script src="{{ url_for('static', filename='statuslight.js') }}?v={{ css_ver }}" defer></script>
@@ -163,6 +191,7 @@
       </div>
     </div>
     <div class="content">{{ body|safe }}</div>
+    <div id="pageEnd" hidden></div>
   </div>
 
   <div class="modalbg" id="appModal" onclick="if(event.target===this) closeModal(false)">

@@ -709,6 +709,9 @@ html[data-siren=true] .hero .caphy-logo{animation:caphy-pulse 1s ease-in-out inf
 .arow.new{animation:rowin .36s var(--ease)}
 @keyframes rowin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 
+/* page transitions: the rules live in an inline <style> in base.html's
+   <head>, not here - see the comment there for why */
+
 /* ===================== PHONE / NARROW WIDTH =====================
    Below 900px the fixed 230px sidebar becomes a slide-in drawer opened
    from the header's menu button (base.html), and multi-column layouts

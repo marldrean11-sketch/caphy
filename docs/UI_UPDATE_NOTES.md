@@ -121,6 +121,35 @@ checks - no sideways scrolling allowed).
 - **Screenshots:** `docs/screenshots/06-alert-toast-burst-1440.png`,
   `docs/screenshots/06-alert-toast-390.png`
 
+## 7. Page transitions (Oct 29)
+
+- **What:** moving between pages, only the page body moves: the old one
+  fades out (160 ms), the new one rises 8px and fades in (280 ms). Sidebar,
+  header and siren bar stay still. Back/forward and the phone drawer links
+  do it too. Off with reduced motion. Cross-page View Transitions API - no
+  JS; browsers without it just navigate as before.
+- **Why it's in `base.html`, not `style.css`:** with the rules in the
+  stylesheet, Chrome skipped nearly every transition. A Chrome trace showed
+  "ViewTransition opt-in disabled" ~2 ms after `style.css` finished loading:
+  the opt-in is checked the moment the new page may first paint, and the
+  linked sheet's rules weren't always registered yet. An inline `<style>` in
+  `<head>` is applied as it's parsed, so it's always in time. Second fix:
+  `<link rel="expect" href="#pageEnd" blocking="render">` holds the new
+  page's first paint until the body is parsed (marker `<div id="pageEnd">`
+  right after `.content`) - without it the new snapshot was empty and only
+  the old page faded.
+- **Files:** `web/templates/base.html` (inline block + rel=expect + marker),
+  `web/static/style.css` (pointer comment only)
+- **Tested:** plain Chrome 156 (driven over CDP - Playwright's own Chrome
+  launch turns off PaintHolding, which these transitions need, so it gave
+  false failures): all 6 pages transition with only the page old/new
+  animating at 160/280 ms, Back (restored from back/forward cache) too,
+  phone drawer link, reduced motion = no transition, no page errors. Ran
+  twice, 13/13 both times. Laptop's WebView2 is 156 (same engine); not yet
+  tried inside the pywebview window (Nov 2 item).
+- **Screenshot:** `docs/screenshots/07-page-transition-mid.png` (120 ms in:
+  sidebar/header already on the new page, old body fading behind the new)
+
 ---
 
 ## Noticed, not changed
