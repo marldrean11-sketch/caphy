@@ -98,6 +98,51 @@
     });
   }
 
+  // ---- new alerts, on every page ----
+  // /api/alerts/stream already pushes each alert the moment it's saved; it
+  // also carries {event:"changed"} for deletes/dismissals, which aren't new
+  // alerts. Each new one becomes a "caphy:alert" event (so a page can add
+  // its own row) plus a toast. The stream is closed while the tab is
+  // hidden: a toast nobody sees is wasted, and each open stream holds a
+  // server thread on the laptop that's also running YOLO.
+  let stream = null;
+
+  function onAlertMsg(ev) {
+    let a = null;
+    try { a = JSON.parse(ev.data); } catch (e) { return; }
+    if (!a || a.event === "changed" || a.id == null) return;
+    document.dispatchEvent(new CustomEvent("caphy:alert", { detail: a }));
+    announceAlert(a);
+  }
+
+  function announceAlert(a) {
+    if (!window.caphyToast) return;
+    const tier = a.tier || 1;
+    const time = String(a.timestamp || "").slice(11, 19);
+    const sub = [a.camera, a.distance_m != null ? a.distance_m + " m away" : "", time]
+      .filter(Boolean).join(" · ");
+    const onHistory = location.pathname.indexOf("/history") === 0;
+    window.caphyToast({
+      tier: tier, text: "Tier " + tier + " · " + (a.event || "Person detected"), sub: sub,
+      // Tier 3 stays longer: it's the one that matters if you glanced away
+      ms: tier >= 3 ? 10000 : 6000,
+      action: onHistory ? null : "View",
+      onAction: function () { location.href = "/history"; }
+    });
+  }
+
+  function openStream() {
+    if (stream || !window.EventSource) return;
+    stream = new EventSource("/api/alerts/stream");
+    stream.onmessage = onAlertMsg;
+  }
+  function closeStream() {
+    if (stream) { stream.close(); stream = null; }
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) closeStream(); else openStream();
+  });
+
   function describe(st) {
     if (st.level === "offline") return "Can't reach CAPHY";
     if (st.level === "threat") return st.siren_active ? "Threat · siren on" : "Threat";
@@ -173,5 +218,6 @@
 
   window.caphyStatusPoll = poll;
   poll();
+  if (!document.hidden) openStream();
   setInterval(poll, 2000);
 })();

@@ -697,6 +697,17 @@ html[data-siren=true] .hero .caphy-logo{animation:caphy-pulse 1s ease-in-out inf
 .ctoast .x{background:transparent;border:0;color:var(--dim);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
 .ctoast .x:hover{color:var(--text)}
 .ctoast .life{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--text);opacity:.35;transform-origin:left}
+/* new-alert toast: tier colour on the left edge and icon, same as .arow
+   (Tier 1-2 = watching yellow, Tier 3 = threat red); distance/time in mono */
+.ctoast.alert{border-left:4px solid var(--yellow)}
+.ctoast.alert.t3{border-left-color:var(--red)}
+.ctoast.alert .ic{stroke:var(--yellow)}
+.ctoast.alert.t3 .ic{stroke:var(--red)}
+.ctoast.alert .msg small{font-family:var(--mono)}
+/* a new alert row slides into Overview's Recent Alerts; the rest slide
+   down with caphyFlip (toast.js) instead of jumping */
+.arow.new{animation:rowin .36s var(--ease)}
+@keyframes rowin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 
 /* ===================== PHONE / NARROW WIDTH =====================
    Below 900px the fixed 230px sidebar becomes a slide-in drawer opened

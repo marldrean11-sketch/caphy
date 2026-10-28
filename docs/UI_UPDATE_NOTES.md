@@ -92,6 +92,35 @@ checks - no sideways scrolling allowed).
   0.4 s press does nothing, 1.3 s hold disarms, Undo re-arms, button the same
   86 x 44 px as before, 390px no sideways scroll, no page errors.
 
+## 6. New-alert toast on every page (Oct 29)
+
+- **What:** `statuslight.js` opens the existing `/api/alerts/stream` on
+  every page. Each new alert (not the `{event:"changed"}` delete/dismiss
+  messages) fires a `caphy:alert` event and a toast: "Tier 3 · Person
+  detected" / "Front door · 2.4 m away · 10:11:01", tier colour on the left
+  edge, **View** opens Alert History (not shown on that page). Tier 3 stays
+  10 s and is announced to screen readers (`role="alert"`); Tier 1-2 stay
+  6 s. On Overview the row slides into Recent Alerts (others slide down,
+  max 5) and "alerts today" / "alerts in total" go up by one.
+- **Why:** before, a new alert only showed up live on Alert History (as a
+  banner); on every other page you'd only see it after a reload.
+- **Cost:** the stream is closed while the tab is hidden and reopened when
+  it's visible again - each open stream holds a server thread on the laptop
+  that's also running YOLO. Alerts that arrive while hidden don't toast;
+  Overview's list catches up on the next reload, as before.
+- **Files:** `web/static/statuslight.js`, `web/static/toast.js` (alert
+  variant, `caphyFlip` shared), `web/static/style.css`, `web/server.py`
+  (`dashboard()`: ids on the list and counts + the `caphy:alert` listener;
+  row markup mirrors `alerts_html` - keep them in step)
+- **Tested (browser, scripted, stream stood in by the test so no camera
+  was needed):** real stream opens; `changed` ignored; Tier 3 toast text /
+  red / role=alert / View, gone after 10 s; row on top + counts +1; burst of
+  4 -> 3 toasts, list stays 5, counts +4; View -> /history; no View on
+  History; toast on Live; hide closes / show reopens the stream; 390px fits,
+  no sideways scroll; no page errors. Not yet seen with a real detection.
+- **Screenshots:** `docs/screenshots/06-alert-toast-burst-1440.png`,
+  `docs/screenshots/06-alert-toast-390.png`
+
 ---
 
 ## Noticed, not changed
@@ -105,3 +134,7 @@ checks - no sideways scrolling allowed).
   no camera list), leaving a plain black box. Same as before the cleanup.
 - Phone, drawer open: a toast sits over the drawer's arm button for its
   4 s (x closes it). The Nov 1 bottom tab bar replaces the drawer anyway.
+- The header bell's unread count doesn't go up on a new alert (server-drawn
+  in `page()`); only Overview's two counts are live.
+- In the 340px alert toast the "camera · distance · time" line wraps to two
+  lines when View is shown. Readable; cutting it would hide the time.

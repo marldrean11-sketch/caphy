@@ -3412,8 +3412,8 @@ def dashboard():
       <div class="scale"><span>10 m</span><span>{config.TIER1_MIN_DIST:g} m</span><span>{config.TIER3_MAX_DIST:g} m</span><span>camera</span></div>
     </div>
     <div class="statrow">
-      <div><b>{today}</b><span>alerts today</span></div>
-      <div><b>{total}</b><span>alerts in total</span></div>
+      <div><b id="hToday">{today}</b><span>alerts today</span></div>
+      <div><b id="hTotal">{total}</b><span>alerts in total</span></div>
       <div><b id="hCams">{online} / {ncam}</b><span>cameras online</span></div>
       <div><b>{pending}</b><span>waiting to sync</span></div>
     </div>
@@ -3447,6 +3447,38 @@ def dashboard():
           }} else mk.style.opacity=0;
         }}
       }});
+      // A new alert slides into Recent Alerts and the counts go up by one,
+      // without a reload. Was: both only changed when the page reloaded.
+      // Row markup mirrors alerts_html in dashboard() - keep them in step.
+      document.addEventListener('caphy:alert', function(ev){{
+        const a=ev.detail, t=a.tier||1;
+        const ev_txt=String(a.event||'Person detected').replace(/[<>&]/g,'');
+        const row=document.createElement('div');
+        row.className='arow t'+t+' new';
+        row.innerHTML='<div class="av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/>'
+          +'<path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg></div>'
+          +'<div class="txt"><div class="tt"><span class="pill p'+t+'">Tier '+t+'</span></div>'
+          +'<div class="ss">'+ev_txt+' &middot; '+(+a.distance_m)+' m away</div></div>'
+          +'<div class="tm">just now</div>';
+        let list=document.getElementById('recentAlerts');
+        if(!list) return;
+        if(!list.classList.contains('alist')){{
+          // was "No alerts yet": swap in a real list
+          const fresh=document.createElement('div');
+          fresh.className='alist'; fresh.id='recentAlerts';
+          list.replaceWith(fresh); list=fresh;
+        }}
+        const rows=[...list.children];
+        const add=function(){{
+          list.prepend(row);
+          while(list.children.length>5) list.lastElementChild.remove();
+        }};
+        if(window.caphyFlip) window.caphyFlip(rows, add); else add();
+        ['hToday','hTotal'].forEach(function(id){{
+          const b=document.getElementById(id);
+          if(b) b.textContent=(parseInt(b.textContent,10)||0)+1;
+        }});
+      }});
     }})();
     </script>"""
 
@@ -3473,8 +3505,10 @@ def dashboard():
         feed_title = ""
 
     # ---- recent alerts list ----
+    # id="recentAlerts" on both versions: the page script adds new alerts
+    # live from the "caphy:alert" event (static/statuslight.js)
     if recent:
-        alerts_html = '<div class="alist">'
+        alerts_html = '<div class="alist" id="recentAlerts">'
         for a in recent:
             t = a["tier"] or 1
             event = "Person detected" if a["tier"] else "Movement (no person)"
@@ -3487,7 +3521,7 @@ def dashboard():
                 f'<div class="tm">{ago(a["timestamp"])}</div></div>')
         alerts_html += "</div>"
     else:
-        alerts_html = '<div style="color:var(--dim);font-size:13px">No alerts yet</div>'
+        alerts_html = '<div id="recentAlerts" style="color:var(--dim);font-size:13px">No alerts yet</div>'
 
     # ---- 24h threat chart (hover a bar to see the hour + alert count) ----
     maxh = max(hours.values()) if hours else 1

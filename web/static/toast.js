@@ -14,6 +14,7 @@
 (function () {
   const MAX = 3;
   const ICON_OK = '<svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const ICON_PERSON = '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
   let stack = null;
 
   function reduced() {
@@ -42,8 +43,9 @@
       el.style.transition = "none";
       el.style.transform = "translateY(" + dy + "px)";
       requestAnimationFrame(function () {
-        el.style.transition = "";
+        el.style.transition = "transform .28s var(--ease)";
         el.style.transform = "";
+        el.addEventListener("transitionend", function () { el.style.transition = ""; }, { once: true });
       });
     });
   }
@@ -52,12 +54,16 @@
     return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
 
-  // opts: text, sub, action (button label), onAction, ms (default 4000)
+  // opts: text, sub, action (button label), onAction, ms (default 4000),
+  // tier (makes it an alert toast: tier colour on the left edge, like .arow)
   function caphyToast(opts) {
     const box = getStack();
     const el = document.createElement("div");
-    el.className = "ctoast";
-    el.innerHTML = ICON_OK + '<div class="msg">' + esc(opts.text) + (opts.sub ? "<small>" + esc(opts.sub) + "</small>" : "") + "</div>" +
+    el.className = "ctoast" + (opts.tier ? " alert t" + opts.tier : "");
+    // Tier 3 interrupts a screen reader; everything else waits its turn
+    // (the stack itself is aria-live=polite)
+    if (opts.tier >= 3) el.setAttribute("role", "alert");
+    el.innerHTML = (opts.tier ? ICON_PERSON : ICON_OK) +'<div class="msg">' + esc(opts.text) + (opts.sub ? "<small>" + esc(opts.sub) + "</small>" : "") + "</div>" +
       (opts.action ? '<button type="button" class="act">' + esc(opts.action) + "</button>" : "") +
       '<button type="button" class="x" aria-label="Dismiss">&times;</button><span class="life"></span>';
     const ms = opts.ms || 4000;
@@ -107,4 +113,7 @@
   }
 
   window.caphyToast = caphyToast;
+  // shared so a page can slide its own lists the same way (Overview's
+  // Recent Alerts uses it when a new alert row arrives)
+  window.caphyFlip = flip;
 })();
