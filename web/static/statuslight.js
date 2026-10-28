@@ -10,17 +10,20 @@
 
    Also wires every .hold button: disarm and silence need a 1.2 s press
    so they can never be an accidental click. */
+/* Was: var + .then chains. Now const/let + async/await to match the rest
+   of Kem's JS; behaviour is unchanged. Still wrapped in an IIFE so only
+   the window.caphy* functions below are global. */
 (function () {
-  var root = document.documentElement;
-  var fails = 0;
-  var HOLD_MS = 1200;
+  const root = document.documentElement;
+  let fails = 0;
+  const HOLD_MS = 1200;
 
   // "1 of 2 cameras watching · 1 off" - same wording as cams_text() in
   // server.py, so the sidebar, header and Overview never disagree
   function camText(st) {
-    var total = st.cams_total || 0, on = st.cams_on || 0, online = st.cams_online || 0;
+    const total = st.cams_total || 0, on = st.cams_on || 0, online = st.cams_online || 0;
     if (!total) return "No cameras set up";
-    var t = online + " of " + total + " camera" + (total !== 1 ? "s" : "") + " watching";
+    const t =online + " of " + total + " camera" + (total !== 1 ? "s" : "") + " watching";
     return total - on ? t + " · " + (total - on) + " off" : t;
   }
   window.caphyCamText = camText;
@@ -30,31 +33,31 @@
     root.dataset.armed = st.armed ? "true" : "false";
     root.dataset.siren = st.siren_active ? "true" : "false";
 
-    var txt = document.getElementById("lvlTxt");
+    const txt = document.getElementById("lvlTxt");
     if (txt) txt.textContent = describe(st);
     if (st.level !== "offline") {
-      var sc = document.getElementById("sideCams");
+      const sc = document.getElementById("sideCams");
       if (sc) sc.textContent = camText(st);
-      var hc = document.getElementById("hdrCams");
+      const hc = document.getElementById("hdrCams");
       if (hc) hc.textContent = (st.cams_online || 0) + " / " + (st.cams_total || 0) + " CAM";
     }
     // per-camera REC badges and "Camera off" overlays (data-*-cam = index
     // into st.cameras)
-    var cams = st.cameras || [];
+    const cams = st.cameras || [];
     document.querySelectorAll("[data-rec-cam]").forEach(function (el) {
-      var c = cams[+el.dataset.recCam];
+      const c = cams[+el.dataset.recCam];
       el.classList.toggle("show", !!(c && c.rec_active));
     });
     document.querySelectorAll("[data-off-cam]").forEach(function (el) {
-      var c = cams[+el.dataset.offCam];
+      const c = cams[+el.dataset.offCam];
       el.classList.toggle("show", !!(c && !c.on));
     });
-    var meta = document.getElementById("sirenMeta");
+    const meta = document.getElementById("sirenMeta");
     if (meta) {
-      var d = st.distance ? " · " + st.distance + " m" : "";
+      const d = st.distance ? " · " + st.distance + " m" : "";
       meta.textContent = st.tier ? "Tier " + st.tier + d : "manual";
     }
-    var arm = document.getElementById("sideArmBtn");
+    const arm = document.getElementById("sideArmBtn");
     if (arm) {
       arm.classList.toggle("armed", !!st.armed);
       arm.querySelector(".lbl").textContent = st.armed ? "Hold to disarm" : "Arm system";
@@ -73,34 +76,42 @@
     return st.armed ? "Clear · armed" : "Clear";
   }
 
-  function poll() {
-    fetch("/api/state", { cache: "no-store", credentials: "same-origin" })
-      .then(function (r) { if (!r.ok) throw r.status; return r.json(); })
-      .then(function (st) { fails = 0; apply(st); })
-      .catch(function () {
-        // one missed poll is a blip; three in a row (~6 s) means the
-        // server is gone, so the eye closes and the logo goes gray
-        if (++fails >= 3) apply({ level: "offline" });
+  async function poll() {
+    try {
+      const r = await fetch("/api/state", { cache: "no-store", credentials: "same-origin" });
+      if (!r.ok) throw r.status;
+      const st = await r.json();
+      fails = 0;
+      apply(st);
+    } catch (e) {
+      // one missed poll is a blip; three in a row (~6 s) means the
+      // server is gone, so the eye closes and the logo goes gray
+      if (++fails >= 3) apply({ level: "offline" });
+    }
+  }
+
+  // re-polls whether the POST worked or not, so the UI always shows the
+  // server's real state rather than what we hoped it did
+  async function post(url, body) {
+    try {
+      await fetch(url, {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
       });
+    } catch (e) {}
+    return poll();
   }
 
-  function post(url, body) {
-    return fetch(url, {
-      method: "POST", credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body || {})
-    }).then(poll, poll);
-  }
-
-  var actions = {
+  const actions = {
     disarm: function () { return post("/api/arm", { on: false }); },
     silence: function () { return post("/api/siren/silence"); }
   };
 
   document.addEventListener("pointerdown", function (e) {
-    var btn = e.target.closest(".hold");
+    const btn = e.target.closest(".hold");
     if (!btn) return;
-    var act = btn.dataset.act;
+    let act = btn.dataset.act;
     if (act === "arm") {
       // arming is never dangerous, so it's a normal click; only disarming holds
       if (root.dataset.armed !== "true") { post("/api/arm", { on: true }); return; }
@@ -124,7 +135,8 @@
   });
 
   // "Turn on" on a Camera off overlay
-  window.caphyResumeCam = function (idx) { return post("/api/camera/" + idx + "/resume"); };
+  function resumeCam(idx) { return post("/api/camera/" + idx + "/resume"); }
+  window.caphyResumeCam = resumeCam;
 
   window.caphyStatusPoll = poll;
   poll();
