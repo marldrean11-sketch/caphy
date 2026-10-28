@@ -23,7 +23,7 @@
   function camText(st) {
     const total = st.cams_total || 0, on = st.cams_on || 0, online = st.cams_online || 0;
     if (!total) return "No cameras set up";
-    const t =online + " of " + total + " camera" + (total !== 1 ? "s" : "") + " watching";
+    const t = online +" of " + total + " camera" + (total !== 1 ? "s" : "") + " watching";
     return total - on ? t + " · " + (total - on) + " off" : t;
   }
   window.caphyCamText = camText;
