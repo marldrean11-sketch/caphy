@@ -1290,8 +1290,10 @@ def _status_light():
     console and the phone (LAN /api/state or the cloud snapshot) always
     agree on the same colour instead of each UI guessing its own:
       clear  (violet) - nobody detected, every switched-on camera is up
-      watch  (yellow) - person at Tier 1-2, a switched-on camera is down,
-                        or every camera is switched off (nothing is watching)
+      idle   (violet, eye closed) - every camera switched off by the user
+                        (cameras start closed on every launch, so this is a
+                        normal resting state, not a warning)
+      watch  (yellow) - person at Tier 1-2, or a switched-on camera is down
       threat (red)    - Tier 3, any person while armed, siren or emergency
     "offline" (gray) is decided by the client: it's the state where it
     can't reach this laptop at all, so the laptop can never report it."""
@@ -1314,8 +1316,10 @@ def _status_light():
         siren_active = bool(_siren_wanted())
     if siren_active or _emergency_on or (tier and (armed or tier >= 3)):
         level = "threat"
-    elif tier or cams_down or not_watching:
+    elif tier or cams_down:
         level = "watch"
+    elif not_watching:
+        level = "idle"
     else:
         level = "clear"
     return {"level": level, "tier": tier,
@@ -2327,7 +2331,7 @@ def _css_version():
 CSS_VER = _css_version()
 
 
-_LIGHT_LABEL = {"clear": "Clear", "watch": "Watching", "threat": "Threat"}
+_LIGHT_LABEL = {"clear": "Clear", "idle": "Cameras are off", "watch": "Watching", "threat": "Threat"}
 
 
 def cams_text(light):
@@ -3386,7 +3390,7 @@ def dashboard():
     first_cam = workers[0].name if workers else "Camera"
     light = _status_light()
     if light["not_watching"]:
-        h_state, h_say = "Watching", ("Cameras are off." if workers else "No cameras set up.")
+        h_state, h_say = "Cameras off", ("Cameras are off." if workers else "No cameras set up.")
         h_sub = "CAPHY isn't watching anything right now."
     else:
         h_state, h_say, h_sub = "Clear", f"{first_cam} is clear.", cams_text(light)
@@ -3428,9 +3432,9 @@ def dashboard():
           else {{ state = st.emergency ? 'Emergency' : 'Siren on'; say = st.emergency ? 'Emergency mode is on.' : 'Siren is sounding.'; sub='Turned on manually'; }}
         }} else if(st.level==='watch'){{
           if(st.tier){{ state='Watching · Tier '+st.tier; say='Someone at '+cam+'.'; sub=d+' · '+(st.tier===1?'snapshot saved':'recording a short clip'); }}
-          else if(st.not_watching){{ say = st.cams_total ? 'Cameras are off.' : 'No cameras set up.'; state='Watching'; sub="CAPHY isn't watching anything right now."; }}
           else {{ state='Watching'; say=cam+' camera is offline.'; sub='No frames from it \u00b7 '+sub; }}
-        }} else if(st.armed){{ state='Clear · armed'; say='Armed. '+FIRST+' is clear.'; }}
+        }} else if(st.level==='idle'){{ state='Cameras off'; say = st.cams_total ? 'Cameras are off.' : 'No cameras set up.'; sub="CAPHY isn't watching anything right now."; }}
+        else if(st.armed){{ state='Clear · armed'; say='Armed. '+FIRST+' is clear.'; }}
         set('hState',state); set('hSay',say); set('hSub',sub);
         var hc=document.getElementById('hCams'); if(hc && st.level!=='offline') hc.textContent=(st.cams_online||0)+' / '+(st.cams_total||0);
         for(var i=1;i<=3;i++){{ var b=document.getElementById('hb'+i); if(b) b.classList.toggle('hit', st.tier===i && st.level!=='offline'); }}

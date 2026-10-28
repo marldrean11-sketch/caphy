@@ -34,7 +34,8 @@
 }
 /* status light: html[data-level] is set by static/statuslight.js from
    /api/state, and every .caphy-logo / [data-level] child follows it */
-[data-level=clear]  {--c:var(--violet);--c1:#C9BCFF;--ci:#DCD2FF;--ct:rgba(139,111,255,.12)}
+[data-level=clear],
+[data-level=idle]   {--c:var(--violet);--c1:#C9BCFF;--ci:#DCD2FF;--ct:rgba(139,111,255,.12)}
 [data-level=watch]  {--c:var(--yellow);--c1:#FFE7A8;--ci:#FFF2CC;--ct:rgba(242,193,78,.12)}
 [data-level=threat] {--c:var(--red);   --c1:#FFA2AB;--ci:#FFD6DA;--ct:rgba(255,77,94,.13)}
 [data-level=offline]{--c:var(--gray);  --c1:#7D7A88;--ci:#9C99A8;--ct:rgba(120,117,132,.12)}
@@ -55,8 +56,12 @@ a{text-decoration:none;color:inherit}
 .caphy-logo .halo{fill:none;stroke:var(--c);stroke-width:3;opacity:0;transform-box:view-box;
   transform-origin:48px 48px;transform:scale(1.16);transition:opacity .4s,stroke .6s}
 html[data-armed=true] .caphy-logo .halo{opacity:.6}
-html[data-level=offline] .caphy-logo .eye{animation:none;transform:scaleY(.06)}
-html[data-level=offline] .caphy-logo .pupil{animation:none;opacity:0}
+/* eye closed: offline (gray, can't reach the laptop) and idle (violet,
+   cameras switched off - resting, not a fault) */
+html[data-level=offline] .caphy-logo .eye,
+html[data-level=idle] .caphy-logo .eye{animation:none;transform:scaleY(.06);transition:transform .5s var(--ease)}
+html[data-level=offline] .caphy-logo .pupil,
+html[data-level=idle] .caphy-logo .pupil{animation:none;opacity:0}
 html[data-siren=true] .logo .caphy-logo{animation:caphy-pulse 1s ease-in-out infinite}
 @keyframes caphy-pulse{0%,100%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 12px var(--red))}}
 .caphy-logo .eye{transform-box:view-box;transform-origin:48px 46px;animation:caphy-blink 6s ease-in-out infinite}
@@ -213,7 +218,9 @@ img.feed{width:100%;border-radius:12px;background:#000;display:block}
 
 /* dashboard: all cams in a compact grid, each filling its tile */
 .feedgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
-.feedtile .feedwrap{aspect-ratio:4/3}
+/* frames are 16:9 (config FRAME_WIDTH/HEIGHT); capped so a single camera
+   doesn't stretch the tile and push Recent Alerts / the chart off screen */
+.feedtile .feedwrap{aspect-ratio:16/9;max-height:440px}
 .feedtile img.feed{width:100%;height:100%;object-fit:cover}
 
 /* live page: big feed that fills the frame */

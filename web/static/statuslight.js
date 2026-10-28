@@ -3,7 +3,8 @@
 
    Levels come from /api/state's `level` (computed once in server.py's
    _status_light so the web console and the phone always agree):
-     clear (violet) / watch (yellow) / threat (red)
+     clear (violet) / idle (violet, eye closed: cameras switched off) /
+     watch (yellow) / threat (red)
    plus "offline" (gray), which only the client can know: it's set when
    this page can no longer reach the CAPHY server at all.
 
@@ -66,9 +67,9 @@
     if (st.level === "threat") return st.siren_active ? "Threat · siren on" : "Threat";
     if (st.level === "watch") {
       if (st.tier) return "Watching · Tier " + st.tier;
-      if (st.not_watching) return st.cams_total ? "Cameras are off" : "No cameras";
       return st.cams_down === 1 ? "A camera is down" : st.cams_down + " cameras down";
     }
+    if (st.level === "idle") return st.cams_total ? "Cameras are off" : "No cameras";
     return st.armed ? "Clear · armed" : "Clear";
   }
 

@@ -5,13 +5,15 @@ import 'package:flutter/material.dart';
 /// every logo on every screen shows the same colour as the web console:
 ///
 ///   clear   violet  nobody detected, cameras up
+///   idle    violet, eye closed  every camera switched off by the user
+///                   (cameras start closed on launch - resting, not a fault)
 ///   watch   yellow  person at Tier 1-2, or a switched-on camera is down
 ///   threat  red     Tier 3, any person while armed, siren or emergency
 ///   offline gray    the phone can't reach the laptop at all
 ///
-/// The laptop computes clear/watch/threat itself (server.py _status_light)
+/// The laptop computes clear/idle/watch/threat itself (server.py _status_light)
 /// so the phone never has to guess; only "offline" is decided here.
-enum Level { clear, watch, threat, offline }
+enum Level { clear, idle, watch, threat, offline }
 
 class LevelPalette {
   final Color main; // shield gradient end + status text
@@ -26,6 +28,7 @@ class LevelPalette {
 
 const _palettes = {
   Level.clear: LevelPalette(Color(0xFF8B6FFF), Color(0xFFC9BCFF), Color(0xFFDCD2FF)),
+  Level.idle: LevelPalette(Color(0xFF8B6FFF), Color(0xFFC9BCFF), Color(0xFFDCD2FF)),
   Level.watch: LevelPalette(Color(0xFFF2C14E), Color(0xFFFFE7A8), Color(0xFFFFF2CC)),
   Level.threat: LevelPalette(Color(0xFFFF4D5E), Color(0xFFFFA2AB), Color(0xFFFFD6DA)),
   Level.offline: LevelPalette(Color(0xFF55525F), Color(0xFF7D7A88), Color(0xFF9C99A8)),
@@ -98,6 +101,9 @@ class StatusLight {
       case 'clear':
         level = Level.clear;
         break;
+      case 'idle':
+        level = Level.idle;
+        break;
       default:
         // an older laptop build without `level`: derive what we can
         level = (siren || emergency || (tier > 0 && (armed || tier >= 3)))
@@ -134,8 +140,9 @@ class StatusLight {
         if (tier > 0) return 'Threat · armed';
         return emergency ? 'Emergency' : 'Siren on';
       case Level.watch:
-        if (tier > 0) return 'Watching · Tier $tier';
-        return notWatching ? 'Not watching' : 'Watching';
+        return tier > 0 ? 'Watching · Tier $tier' : 'Watching';
+      case Level.idle:
+        return 'Cameras off';
       case Level.clear:
         return armed ? 'Clear · armed' : 'Clear';
     }
@@ -152,11 +159,9 @@ class StatusLight {
         if (tier > 0) return 'Person at $where while armed.';
         return emergency ? 'Emergency mode is on.' : 'Siren is sounding.';
       case Level.watch:
-        if (tier > 0) return 'Someone at $where.';
-        if (notWatching) {
-          return camsTotal == 0 ? 'No cameras set up.' : 'Cameras are off.';
-        }
-        return '$where camera is offline.';
+        return tier > 0 ? 'Someone at $where.' : '$where camera is offline.';
+      case Level.idle:
+        return camsTotal == 0 ? 'No cameras set up.' : 'Cameras are off.';
       case Level.clear:
         return armed ? 'Armed. All clear.' : 'All clear.';
     }
@@ -175,8 +180,9 @@ class StatusLight {
         if (tier > 0) {
           return '$dist${tier == 1 ? 'snapshot saved' : 'recording a short clip'}';
         }
-        if (notWatching) return "CAPHY isn't watching anything right now.";
         return camText;
+      case Level.idle:
+        return "CAPHY isn't watching anything right now.";
       case Level.clear:
         return camText;
     }

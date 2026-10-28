@@ -120,7 +120,9 @@ class _CaphyLogoState extends State<CaphyLogo> with TickerProviderStateMixin {
     final pinned = widget.level != null;
     final armed = !pinned && _st.armed;
     final siren = !pinned && _st.siren;
-    final offline = _level == Level.offline;
+    // eye closed: offline (gray, laptop unreachable) and idle (violet,
+    // cameras switched off - resting, not a fault)
+    final offline = _level == Level.offline || _level == Level.idle;
     return AnimatedBuilder(
       animation: Listenable.merge([_morph, if (_c != null) _c!]),
       builder: (_, _) {
