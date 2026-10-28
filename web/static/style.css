@@ -219,8 +219,10 @@ img.feed{width:100%;border-radius:12px;background:#000;display:block}
 /* dashboard: all cams in a compact grid, each filling its tile */
 .feedgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 /* frames are 16:9 (config FRAME_WIDTH/HEIGHT); capped so a single camera
-   doesn't stretch the tile and push Recent Alerts / the chart off screen */
-.feedtile .feedwrap{aspect-ratio:16/9;max-height:440px}
+   doesn't stretch the tile and push Recent Alerts / the chart off screen.
+   width:100% because aspect-ratio turns that max-height into a hidden
+   max-width (~782px), which left a gap beside the tile on wide columns */
+.feedtile .feedwrap{aspect-ratio:16/9;max-height:440px;width:100%}
 .feedtile img.feed{width:100%;height:100%;object-fit:cover}
 
 /* live page: big feed that fills the frame */
