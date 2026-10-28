@@ -29,7 +29,7 @@ import cv2
 import numpy as np
 from flask import (Flask, Response, request, redirect, url_for, session,
                    render_template, send_file, abort, jsonify,
-                   stream_with_context)
+                   stream_with_context, has_request_context)
 
 import sys
 import config
@@ -473,6 +473,7 @@ class Worker(threading.Thread):
                               config.SNAPSHOT_TIERS, config.RECORD_TIERS, config.PRESENCE_GRACE_SEC,
                               self.name,
                               videos_dir=getattr(config, "VIDEOS_DIR", config.CAPTURES_DIR))
+        self.alerts = alerts   # read by is_recording() for the REC badges
         # Cameras start closed by default (self.paused=True) - don't touch the
         # device at all until the user explicitly opens it. Opening and
         # immediately releasing it here would still briefly grab the camera
@@ -1080,6 +1081,12 @@ class Worker(threading.Thread):
         with self.lock:
             return dict(self.stats)
 
+    def is_recording(self):
+        """True while this camera is writing video for any reason: a manual
+        recording, or an alert clip (Tier 2/3, or any tier while armed)."""
+        a = getattr(self, "alerts", None)
+        return bool(self.manual_record) or (a is not None and getattr(a, "_writer", None) is not None)
+
     def get_logs(self):
         with self.lock:
             return list(self.logs)
@@ -1219,11 +1226,63 @@ def _silence_siren():
     red status light carry on - only the noise stops."""
     global _siren_manual
     with _siren_lock:
+        was = _siren_wanted()
         _siren_manual = False
         for cam, on in _siren_states.items():
             if on:
                 _siren_silenced.add(cam)
         _recompute_siren()
+    if was:
+        names = [w.name for w in workers if w.cam_id in _siren_silenced]
+        log_activity("siren_silence", "Silenced the siren"
+                     + (f" \u00b7 {', '.join(names)}" if names else ""))
+
+
+# ---- activity log: who did what to the system, from where ----
+_activity_local = threading.local()
+
+
+class _quiet_activity:
+    """`with _quiet_activity():` - changes made inside are part of one
+    bigger action that is logged once (e.g. emergency mode arms, opens the
+    cameras and starts the siren, but reads as a single "Emergency on")."""
+    def __enter__(self):
+        _activity_local.depth = getattr(_activity_local, "depth", 0) + 1
+
+    def __exit__(self, *exc):
+        _activity_local.depth -= 1
+
+
+def _activity_origin():
+    """(source, actor) for the request that caused a change. No request
+    (background thread, startup) means CAPHY did it itself."""
+    if not has_request_context():
+        return "System", ""
+    if (request.headers.get("X-CAPHY-Internal") == _INTERNAL_TOKEN
+            and request.remote_addr in ("127.0.0.1", "::1")):
+        return "Phone (remote)", ""      # a phone's command relayed via the cloud
+    actor = session.get("display_name") or session.get("email") or ""
+    if request.path == "/api/assistant":
+        return "Voice assistant", actor
+    if session.get("user_uid"):
+        return "Web console", actor
+    return "Phone", ""                   # bearer token over the LAN
+
+
+def log_activity(kind, text, source=None, actor=None):
+    """Append one row to the activity log. Never raises - a failed log
+    write must not break the action that was just performed."""
+    if getattr(_activity_local, "depth", 0):
+        return
+    try:
+        src, who = _activity_origin()
+        db = Database(config.DB_PATH)
+        try:
+            db.add_activity(kind, text, source or src, who if actor is None else actor)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[CAPHY] Activity log write failed: {e}")
 
 
 def _status_light():
@@ -1231,7 +1290,8 @@ def _status_light():
     console and the phone (LAN /api/state or the cloud snapshot) always
     agree on the same colour instead of each UI guessing its own:
       clear  (violet) - nobody detected, every switched-on camera is up
-      watch  (yellow) - person at Tier 1-2, or a switched-on camera is down
+      watch  (yellow) - person at Tier 1-2, a switched-on camera is down,
+                        or every camera is switched off (nothing is watching)
       threat (red)    - Tier 3, any person while armed, siren or emergency
     "offline" (gray) is decided by the client: it's the state where it
     can't reach this laptop at all, so the laptop can never report it."""
@@ -1245,18 +1305,24 @@ def _status_light():
     down = [w for w, s in stats if not w.paused and not s.get("online")]
     cams_down = len(down)
     camera = at.name if at else (down[0].name if down else None)
+    cams_total = len(workers)
+    cams_on = sum(1 for w in workers if not w.paused)
+    cams_online = len(live)
+    # all switched off (or none configured) = CAPHY is blind, never "clear"
+    not_watching = cams_on == 0
     with _siren_lock:
         siren_active = bool(_siren_wanted())
     if siren_active or _emergency_on or (tier and (armed or tier >= 3)):
         level = "threat"
-    elif tier or cams_down:
+    elif tier or cams_down or not_watching:
         level = "watch"
     else:
         level = "clear"
     return {"level": level, "tier": tier,
             "distance": distance if distance not in (None, "-") else None,
             "siren_active": siren_active, "cams_down": cams_down,
-            "camera": camera}
+            "camera": camera, "cams_total": cams_total, "cams_on": cams_on,
+            "cams_online": cams_online, "not_watching": not_watching}
 
 
 def scan_cameras(max_index=6):
@@ -1484,7 +1550,8 @@ def start_workers(sources):
     # Start DISARMED so launching CAPHY never instantly fires the siren while
     # you're sitting right in front of the webcam. The user arms it when ready
     # (dashboard, phone, or voice); arming then applies the grace window too.
-    _set_armed(False)
+    _set_armed(False, log=False)
+    log_activity("system", f"CAPHY started \u00b7 {len(sources) if sources else 0} camera(s), disarmed")
 
     # Bring the cloud services (registration, heartbeat, remote commands,
     # WebRTC live streaming) up FIRST, before the slow camera/model init
@@ -2234,8 +2301,9 @@ def guard():
 
 
 # ==================== HTML / CSS ====================
-NAV = [("/", "Dashboard"), ("/live", "Live Camera"),
-       ("/history", "Alert History"), ("/logs", "System Logs"), ("/settings", "Settings")]
+NAV = [("/", "Overview"), ("/live", "Live Camera"),
+       ("/history", "Alert History"), ("/activity", "Activity"),
+       ("/logs", "System Logs"), ("/settings", "Settings")]
 
 # Cache-busting version for style.css: a short hash of the file's own
 # contents, computed once at startup. Browsers were caching an old copy of
@@ -2259,10 +2327,25 @@ def _css_version():
 CSS_VER = _css_version()
 
 
+_LIGHT_LABEL = {"clear": "Clear", "watch": "Watching", "threat": "Threat"}
+
+
+def cams_text(light):
+    """'1 of 2 cameras watching · 1 off' - the one camera-count wording every
+    place uses (sidebar, Overview, header). static/statuslight.js has the
+    same function (caphyCamText) for live updates; keep the two in step."""
+    total, on, online = light["cams_total"], light["cams_on"], light["cams_online"]
+    if not total:
+        return "No cameras set up"
+    txt = f"{online} of {total} camera{'s' if total != 1 else ''} watching"
+    off = total - on
+    return txt + (f" \u00b7 {off} off" if off else "")
+
+
 def page(title, href, body, subtitle=""):
-    st = workers[0].get_stats() if workers else {"armed": True, "online": False}
-    online = sum(1 for w in workers if w.get_stats().get("online"))
-    cam = f"{online} of {len(workers)} cameras online" if workers else "no cameras"
+    light = _status_light()
+    online = light["cams_online"]
+    cam = cams_text(light)
     try:
         db = Database(config.DB_PATH)
         unread = db.count_alerts(include_dismissed=False)
@@ -2275,7 +2358,9 @@ def page(title, href, body, subtitle=""):
     display_name = session.get("display_name", "").strip()
     shown_user = display_name if display_name else session.get("email", "admin")
     return render_template("base.html", title=title, page=href, nav=NAV, body=body,
-                           subtitle=subtitle, ncam=online, user=shown_user,
+                           subtitle=subtitle, ncam=online, ntotal=light["cams_total"],
+                           light=light, level_label=_LIGHT_LABEL[light["level"]],
+                           user=shown_user,
                            armed=_is_armed(), cam=cam, nalerts=unread,
                            css_ver=CSS_VER)
 
@@ -2386,6 +2471,7 @@ def login():
         session["email"] = email
         session["display_name"] = "Local test"
         session.permanent = remember
+        log_activity("signin", "Signed in with the local test account")
         return redirect(url_for("dashboard"))
 
     result = _firebase_rest_sign_in(email, password)
@@ -2402,6 +2488,7 @@ def login():
     if session.permanent:
         app.permanent_session_lifetime = timedelta(days=30)
     _mirror_local_user(result["uid"], email)
+    log_activity("signin", "Signed in to the web console")
     return redirect(url_for("dashboard"))
 
 
@@ -3141,6 +3228,8 @@ def set_password():
 @app.route("/logout")
 def logout():
     """Clear session and redirect to login."""
+    if session.get("user_uid"):
+        log_activity("signout", "Signed out of the web console")
     session.clear()
     return redirect(url_for("login"))
 
@@ -3295,12 +3384,18 @@ def dashboard():
     # distance meter. Rendered from the current state and kept live by
     # static/statuslight.js ("caphy:state" event -> script below). ----
     first_cam = workers[0].name if workers else "Camera"
+    light = _status_light()
+    if light["not_watching"]:
+        h_state, h_say = "Watching", ("Cameras are off." if workers else "No cameras set up.")
+        h_sub = "CAPHY isn't watching anything right now."
+    else:
+        h_state, h_say, h_sub = "Clear", f"{first_cam} is clear.", cams_text(light)
     cards = f"""
     <div class="hero">
       {logo_svg("hero", "biglogo")}
-      <div><div class="state" id="hState">Clear</div>
-        <div class="say" id="hSay">{first_cam} is clear.</div>
-        <div class="hsub" id="hSub">{online} of {ncam} cameras watching</div></div>
+      <div><div class="state" id="hState">{h_state}</div>
+        <div class="say" id="hSay">{h_say}</div>
+        <div class="hsub" id="hSub">{h_sub}</div></div>
     </div>
     <div class="meter">
       <div class="track">
@@ -3324,9 +3419,7 @@ def dashboard():
         e.textContent=v; e.classList.remove('roll'); void e.offsetWidth; e.classList.add('roll');}}
       document.addEventListener('caphy:state', function(ev){{
         var st=ev.detail, cam=st.camera||FIRST, d=st.distance?(st.distance+' m'):'';
-        var state='Clear', say=FIRST+' is clear.', sub='', on=0, tot=0;
-        (st.cameras||[]).forEach(function(c){{ if(c.on) tot++; if(c.on && c.online) on++; }});
-        sub = on+' of '+tot+' cameras watching';
+        var state='Clear', say=FIRST+' is clear.', sub=window.caphyCamText(st);
         if(st.level==='offline'){{ state='Offline'; say="Can't reach the CAPHY server."; sub='The page will reconnect on its own once it is back.'; }}
         else if(st.level==='threat'){{
           var act = st.siren_active ? 'siren on' : 'siren silenced';
@@ -3335,10 +3428,11 @@ def dashboard():
           else {{ state = st.emergency ? 'Emergency' : 'Siren on'; say = st.emergency ? 'Emergency mode is on.' : 'Siren is sounding.'; sub='Turned on manually'; }}
         }} else if(st.level==='watch'){{
           if(st.tier){{ state='Watching · Tier '+st.tier; say='Someone at '+cam+'.'; sub=d+' · '+(st.tier===1?'snapshot saved':'recording a short clip'); }}
-          else {{ state='Watching'; say=cam+' camera is offline.'; sub='No frames from it. '+sub+'.'; }}
+          else if(st.not_watching){{ say = st.cams_total ? 'Cameras are off.' : 'No cameras set up.'; state='Watching'; sub="CAPHY isn't watching anything right now."; }}
+          else {{ state='Watching'; say=cam+' camera is offline.'; sub='No frames from it \u00b7 '+sub; }}
         }} else if(st.armed){{ state='Clear · armed'; say='Armed. '+FIRST+' is clear.'; }}
         set('hState',state); set('hSay',say); set('hSub',sub);
-        var hc=document.getElementById('hCams'); if(hc) hc.textContent=on+' / '+tot;
+        var hc=document.getElementById('hCams'); if(hc && st.level!=='offline') hc.textContent=(st.cams_online||0)+' / '+(st.cams_total||0);
         for(var i=1;i<=3;i++){{ var b=document.getElementById('hb'+i); if(b) b.classList.toggle('hit', st.tier===i && st.level!=='offline'); }}
         var mk=document.getElementById('hMk'), dist=parseFloat(st.distance);
         if(mk){{
@@ -3354,11 +3448,19 @@ def dashboard():
     # ---- live feed panel (all active cameras, compact) ----
     if workers:
         tiles = ""
-        for w in workers:
+        for i, w in enumerate(workers):
+            # REC badge and "Camera off" overlay start from the real state and
+            # are kept live by static/statuslight.js (data-rec-cam / data-off-cam
+            # = the camera's position in /api/state "cameras")
+            rec = " show" if w.is_recording() else ""
+            off = " show" if w.paused else ""
             tiles += (f'<div class="feedtile"><div class="feedwrap">'
                       f'<img class="feed" src="/video_feed/{w.cam_id}">'
-                      f'<span class="pill p3 rec">&#9679; REC</span></div>'
-                      f'<div class="feedcap">{w.name}</div></div>')
+                      f'<span class="pill p3 rec{rec}" data-rec-cam="{i}">&#9679; REC</span>'
+                      f'<div class="camoff{off}" data-off-cam="{i}"><b>Camera off</b>'
+                      f'<span>CAPHY isn\'t watching here</span>'
+                      f'<button type="button" class="btn" onclick="caphyResumeCam({i})">Turn on</button></div>'
+                      f'</div><div class="feedcap">{w.name}</div></div>')
         feed = f'<div class="feedgrid">{tiles}</div>'
         feed_title = " &mdash; " + workers[0].name
     else:
@@ -3474,7 +3576,7 @@ def live():
     body = """
     <div class="livewrap">
       <div class="panel maincam">
-        <div class="ph"><h2 id="mainName">__MAIN_NAME__</h2><span class="pill p3 rec">&#9679; REC</span></div>
+        <div class="ph"><h2 id="mainName">__MAIN_NAME__</h2><span class="pill p3 rec" id="mainRec" data-rec-cam="__MAIN_IDX__">&#9679; REC</span></div>
         <div class="feedwrap live" id="mainwrap">
           <img class="feed" id="mainFeed" src="/video_feed/__MAIN_ID__">
           <!-- Covers the <img> above until the selected camera has actually
@@ -3507,7 +3609,7 @@ def live():
             <div class="dh">DETECTION</div>
             <div class="dr"><span>Factor 1 &middot; Motion</span><span class="dot" id="dm" style="background:var(--dim)"></span></div>
             <div class="dr"><span>Factor 2 &middot; Person</span><span class="dot" id="dp" style="background:var(--dim)"></span></div>
-            <div class="dd">Est. distance <span id="ddist">-</span> m away</div>
+            <div class="dd" id="ddWrap">No one in view</div>
           </div>
           <!-- fullscreen: just the video. Only an Exit button, which auto-hides. -->
           <button class="fsexit" id="fsexit" onclick="fsMain()">&#10005;&nbsp;Exit</button>
@@ -3555,7 +3657,7 @@ def live():
           <div class="camlist">__CAM_ITEMS__</div>
         </div>
         <div class="panel">
-          <h2 style="margin-bottom:14px">Activity Log</h2>
+          <h2 style="margin-bottom:14px">Detection log</h2>
           <div class="tflog" id="tflog"></div>
         </div>
       </div>
@@ -3630,6 +3732,9 @@ def live():
       showCamLoading();
       document.getElementById('mainFeed').src = '/video_feed/'+id;
       document.getElementById('mainName').textContent = document.querySelector('#ci'+id+' .cn').textContent;
+      // REC badge follows whichever camera is now the main view
+      var mr = document.getElementById('mainRec'), idx = Array.prototype.indexOf.call(document.querySelectorAll('.camitem'), document.getElementById('ci'+id));
+      if (mr && idx >= 0) { mr.dataset.recCam = idx; if (window.caphyStatusPoll) window.caphyStatusPoll(); }
       document.querySelectorAll('.camitem').forEach(function(e){ e.classList.remove('active'); });
       const it = document.getElementById('ci'+id); if(it) it.classList.add('active');
       // reflect this camera's open/closed state on the Close/Open Camera
@@ -3822,7 +3927,9 @@ def live():
           if(s.cam===sel){
             document.getElementById('dm').style.background = s.motion?'var(--green)':'var(--dim)';
             document.getElementById('dp').style.background = s.person?'var(--green)':'var(--dim)';
-            document.getElementById('ddist').textContent = s.distance;
+            const dw = document.getElementById('ddWrap');
+            if (dw) dw.textContent = (s.person && s.distance && s.distance !== '-')
+              ? 'Est. distance ' + s.distance + ' m away' : 'No one in view';
             syncCamCloseBtn(!camOn);
             // Camera deliberately closed (paused) is a distinct, expected
             // state - not a failure - so it should show neither the
@@ -3956,7 +4063,7 @@ def live():
       .closeallbtn.openall{border-color:var(--teal2);color:var(--teal2)}
       .closeallbtn.openall:hover{background:rgba(63,215,196,.1)}
     </style>
-    """.replace("__CAM_ITEMS__", cam_items).replace("__MAIN_NAME__", main_name).replace("__MAIN_ID__", str(main_id)).replace("__CAM_CLOSE_BTN__", cam_close_btn)
+    """.replace("__CAM_ITEMS__", cam_items).replace("__MAIN_NAME__", main_name).replace("__MAIN_ID__", str(main_id)).replace("__MAIN_IDX__", "0").replace("__CAM_CLOSE_BTN__", cam_close_btn)
     return page("Live Camera", "/live", body)
 
 
@@ -4062,6 +4169,8 @@ def api_nightvision(cam):
     for w in workers:
         w.nv.enabled = new_state
         w._log("INFO", "night", "CLAHE " + ("ON" if new_state else "OFF") + " (manual)")
+    log_activity("night_on" if new_state else "night_off",
+                 "Turned night vision on" if new_state else "Turned night vision off")
     return jsonify({"on": new_state})
 
 
@@ -4069,6 +4178,8 @@ def api_nightvision(cam):
 def api_siren():
     global _siren_manual
     _siren_manual = not _siren_manual
+    log_activity("siren_on" if _siren_manual else "siren_off",
+                 "Turned the siren on" if _siren_manual else "Turned the siren off")
     with _siren_lock:
         _recompute_siren()
     _push_state_async()
@@ -4694,8 +4805,9 @@ _arm_grace_until = 0.0     # no alerts until this time (set when arming)
 _disarm_grace_until = 0.0  # Tier 3 does not escalate (siren/urgent push) until this time (set when disarming)
 
 
-def _set_armed(value):
+def _set_armed(value, source=None, log=True):
     global _arm_grace_until, _disarm_grace_until
+    was = _is_armed() if log else value
     if value:
         # Arming grace: give the user a few seconds to leave the frame, so
         # arming while standing in view does not instantly fire an alert.
@@ -4715,6 +4827,9 @@ def _set_armed(value):
         db.conn.commit()
     finally:
         db.close()
+    if log and bool(was) != bool(value):
+        log_activity("arm" if value else "disarm",
+                     "Armed the system" if value else "Disarmed the system", source=source)
 
 
 def _is_armed():
@@ -4728,20 +4843,31 @@ def _is_armed():
 
 def _set_siren(on):
     global _siren_manual
+    if bool(on) != bool(_siren_manual):
+        log_activity("siren_on" if on else "siren_off",
+                     "Turned the siren on" if on else "Turned the siren off")
     _siren_manual = bool(on)
     with _siren_lock:
         _recompute_siren()
 
 
 def _set_camera(on):
+    changed = any(w.paused == bool(on) for w in workers)
     for w in workers:
         w.paused = not on
+    if changed:
+        log_activity("camera_on" if on else "camera_off",
+                     "Turned all cameras on" if on else "Turned all cameras off")
 
 
 def _set_night_vision(on):
+    changed = any(getattr(w, "nv", None) and w.nv.enabled != bool(on) for w in workers)
     for w in workers:
         if getattr(w, "nv", None):
             w.nv.enabled = bool(on)
+    if changed:
+        log_activity("night_on" if on else "night_off",
+                     "Turned night vision on" if on else "Turned night vision off")
 
 
 def _system_snapshot():
@@ -4772,10 +4898,13 @@ def _do_action(action):
         # remember what we interrupted so emergency_off can restore it
         _emergency_prev = {"armed": _is_armed(),
                            "camera_on": any(not w.paused for w in workers) if workers else True}
+        if not _emergency_on:
+            log_activity("emergency_on", "Turned emergency mode on")
         _emergency_on = True
-        _set_camera(True)             # overrides camera OFF
-        _set_armed(True)
-        _set_siren(True)
+        with _quiet_activity():
+            _set_camera(True)             # overrides camera OFF
+            _set_armed(True)
+            _set_siren(True)
         for w in workers:
             w.highest = True          # every confirmed person reports as Tier 3
         try:
@@ -4791,23 +4920,28 @@ def _do_action(action):
             print(f"[CAPHY] emergency push failed: {e}")
 
     elif action == "emergency_off":
+        if _emergency_on:
+            log_activity("emergency_off", "Turned emergency mode off")
         _emergency_on = False
-        _set_siren(False)
-        for w in workers:
-            w.highest = config.HIGHEST_SECURITY
-        if _emergency_prev:
-            _set_armed(_emergency_prev["armed"])
-            _set_camera(_emergency_prev["camera_on"])
-            _emergency_prev = None
+        with _quiet_activity():
+            _set_siren(False)
+            for w in workers:
+                w.highest = config.HIGHEST_SECURITY
+            if _emergency_prev:
+                _set_armed(_emergency_prev["armed"])
+                _set_camera(_emergency_prev["camera_on"])
+                _emergency_prev = None
 
     elif action == "clear_alerts":
         # Dismiss, never delete. The rows stay in the database as evidence and
         # as thesis data - "clear" only means "stop showing me these".
         db = Database(config.DB_PATH)
         try:
-            db.dismiss_all_alerts()
+            n = db.dismiss_all_alerts()
         finally:
             db.close()
+        if n:
+            log_activity("alert_ack", f"Acknowledged all alerts ({n})")
 
     elif action == "check_status":
         return _system_snapshot()
@@ -4905,7 +5039,7 @@ def start_auto_arm_scheduler():
                     if last_state is None:
                         last_state = night          # don't act on first tick
                     elif night != last_state:
-                        _set_armed(night)
+                        _set_armed(night, source="Auto-arm schedule")
                         print(f"[CAPHY] Auto-arm: {'ARMED' if night else 'DISARMED'} "
                               f"({datetime.now().strftime('%H:%M')})")
                         last_state = night
@@ -5009,7 +5143,8 @@ def api_state():
         "camera_on": any(not w.paused for w in workers) if workers else False,
         "cameras": [{"cam": w.cam_id, "name": w.name, "on": not w.paused,
                      "online": w.get_stats().get("online", False),
-                     "recording": bool(w.manual_record)} for w in workers],
+                     "recording": bool(w.manual_record),
+                     "rec_active": w.is_recording()} for w in workers],
         # Was completely missing from this endpoint - a recording started
         # from the Live tab button, from a voice command ("start
         # recording"), or from a previous app session had NO way to ever
@@ -5065,6 +5200,8 @@ def api_camera_pause(cam):
     """Pause/close a single camera without affecting others."""
     if not (0 <= cam < len(workers)):
         return jsonify({"error": "Camera not found"}), 404
+    if not workers[cam].paused:
+        log_activity("camera_off", f"Turned the {workers[cam].name} camera off")
     workers[cam].paused = True
     return jsonify({"ok": True, "paused": True})
 
@@ -5075,6 +5212,8 @@ def api_camera_resume(cam):
     touching any other camera's state."""
     if not (0 <= cam < len(workers)):
         return jsonify({"error": "Camera not found"}), 404
+    if workers[cam].paused:
+        log_activity("camera_on", f"Turned the {workers[cam].name} camera on")
     workers[cam].paused = False
     return jsonify({"ok": True, "paused": False})
 
@@ -5096,6 +5235,7 @@ def api_dismiss_alert(aid):
     db = Database(config.DB_PATH)
     try:
         db.dismiss_alert(aid)
+        log_activity("alert_ack", f"Acknowledged alert #{aid}")
         # Same SSE channel new alerts use (_broadcast_alert -> /api/alerts/
         # stream) - every connected phone/dashboard already listens on this
         # and re-fetches its list the instant anything arrives (see
@@ -5350,6 +5490,7 @@ def api_dismiss_all():
         n = db.dismiss_all_alerts()
         if n:
             _broadcast_alert({"event": "changed", "reason": "dismissed_all"})
+            log_activity("alert_ack", f"Acknowledged all alerts ({n})")
         return jsonify({"ok": True, "dismissed": n})
     finally:
         db.close()
@@ -5486,6 +5627,9 @@ def _assistant_action_handlers():
         cam = _cam0()
         if cam is None:
             return {"ok": False, "error": "No camera available."}
+        if workers[cam].paused != pause:
+            log_activity("camera_off" if pause else "camera_on",
+                         f"Turned the {workers[cam].name} camera {'off' if pause else 'on'}")
         workers[cam].paused = pause
         return {"ok": True, "paused": pause}
 
@@ -6291,6 +6435,116 @@ def _log_line_html(l):
             f'<span class="lvl" style="background:color-mix(in srgb,{col} 20%,transparent);color:{col}">{l["level"]}</span>'
             f'<span class="lm">{l["mod"]}</span>'
             f'<span style="color:{msg_col}">{l["msg"]}</span></div>')
+
+
+ACTIVITY_GROUPS = {
+    "arming":  ("arm", "disarm", "emergency_on", "emergency_off"),
+    "siren":   ("siren_on", "siren_off", "siren_silence"),
+    "cameras": ("camera_on", "camera_off", "night_on", "night_off"),
+    "access":  ("signin", "signout"),
+    "alerts":  ("alert_ack",),
+}
+
+
+@app.route("/api/activity")
+def api_activity():
+    """Activity log, newest first. ?group=arming|siren|cameras|access|alerts
+    filters; ?after=<id> returns only newer rows (the page polls with it)."""
+    try:
+        limit = max(1, min(int(request.args.get("limit", 200)), 500))
+        after = int(request.args.get("after", 0) or 0)
+    except ValueError:
+        limit, after = 200, 0
+    kinds = ACTIVITY_GROUPS.get(request.args.get("group", ""))
+    db = Database(config.DB_PATH)
+    try:
+        return jsonify(db.recent_activity(limit, kinds, after))
+    finally:
+        db.close()
+
+
+@app.route("/activity")
+def activity():
+    """Who armed, disarmed, silenced, switched cameras or signed in - and
+    from where (web console, phone, voice assistant, schedule)."""
+    pills = "".join(
+        f'<button type="button" class="fpill{" active" if g == "" else ""}" data-group="{g}">{label}</button>'
+        for g, label in (("", "All"), ("arming", "Arming"), ("siren", "Siren"),
+                         ("cameras", "Cameras"), ("access", "Sign-ins"), ("alerts", "Alerts")))
+    body = f"""
+    <div class="toolbar"><div class="fpills" id="actFilters">{pills}</div></div>
+    <div class="panel"><div id="actList" class="actlist"><div class="actempty">Loading&hellip;</div></div></div>
+    <script>
+    (function(){{
+      var group = '', lastId = 0, rows = [];
+      var ICON = {{
+        arm: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+        disarm: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/>',
+        emergency_on: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+        siren_on: '<path d="M7 18v-6a5 5 0 0 1 10 0v6"/><path d="M5 21h14M12 3v1M4.2 7.2l.7.7M19.8 7.2l-.7.7"/>',
+        siren_silence: '<path d="M7 18v-6a5 5 0 0 1 10 0v6"/><path d="M5 21h14M3 3l18 18"/>',
+        camera_on: '<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/>',
+        camera_off: '<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3zM2 2l20 20"/>',
+        night_on: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+        signin: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>',
+        alert_ack: '<path d="M20 6L9 17l-5-5"/>',
+        system: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>'
+      }};
+      ICON.emergency_off = ICON.emergency_on; ICON.siren_off = ICON.siren_silence;
+      ICON.night_off = ICON.night_on; ICON.signout = ICON.signin;
+      var DANGER = {{emergency_on:1, siren_on:1}};
+      function esc(t){{ return String(t==null?'':t).replace(/[&<>"]/g, function(c){{return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}}[c];}}); }}
+      function dayLabel(ts){{
+        var d = new Date(ts), t = new Date(); t.setHours(0,0,0,0);
+        var x = new Date(d); x.setHours(0,0,0,0);
+        var diff = Math.round((t - x) / 864e5);
+        if (diff === 0) return 'Today';
+        if (diff === 1) return 'Yesterday';
+        return d.toLocaleDateString(undefined, {{weekday:'short', month:'short', day:'numeric'}});
+      }}
+      function rowHtml(r, fresh){{
+        var meta = esc(r.source) + (r.actor ? ' &middot; ' + esc(r.actor) : '');
+        return '<div class="actrow' + (fresh ? ' fresh' : '') + (DANGER[r.kind] ? ' danger' : '') + '">'
+          + '<time>' + esc((r.timestamp || '').slice(11, 16)) + '</time>'
+          + '<span class="acticon"><svg viewBox="0 0 24 24">' + (ICON[r.kind] || ICON.system) + '</svg></span>'
+          + '<div><b>' + esc(r.text) + '</b><small>' + meta + '</small></div></div>';
+      }}
+      function render(freshIds){{
+        var box = document.getElementById('actList');
+        if (!rows.length) {{ box.innerHTML = '<div class="actempty">Nothing here yet. Arming, the siren, cameras and sign-ins will show up as they happen.</div>'; return; }}
+        var html = '', day = '';
+        rows.forEach(function(r){{
+          var d = dayLabel(r.timestamp);
+          if (d !== day) {{ day = d; html += '<div class="actday">' + esc(d) + '</div>'; }}
+          html += rowHtml(r, freshIds && freshIds[r.activity_id]);
+        }});
+        box.innerHTML = html;
+      }}
+      function load(){{
+        fetch('/api/activity?limit=200&group=' + group, {{cache:'no-store'}})
+          .then(function(r){{ return r.json(); }})
+          .then(function(list){{ rows = list; lastId = list.length ? list[0].activity_id : lastId; render(); }})
+          .catch(function(){{}});
+      }}
+      function poll(){{
+        fetch('/api/activity?limit=50&group=' + group + '&after=' + lastId, {{cache:'no-store'}})
+          .then(function(r){{ return r.json(); }})
+          .then(function(list){{
+            if (!list.length) return;
+            var fresh = {{}}; list.forEach(function(r){{ fresh[r.activity_id] = 1; }});
+            rows = list.concat(rows).slice(0, 300); lastId = list[0].activity_id; render(fresh);
+          }}).catch(function(){{}});
+      }}
+      document.getElementById('actFilters').addEventListener('click', function(e){{
+        var b = e.target.closest('.fpill'); if (!b) return;
+        document.querySelectorAll('#actFilters .fpill').forEach(function(x){{ x.classList.toggle('active', x === b); }});
+        group = b.dataset.group; lastId = 0; load();
+      }});
+      load(); setInterval(poll, 4000);
+    }})();
+    </script>"""
+    return page("Activity", "/activity", body,
+                subtitle="Who changed what, and from where")
 
 
 @app.route("/logs")

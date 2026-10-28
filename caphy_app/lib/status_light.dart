@@ -45,6 +45,8 @@ class StatusLight {
   final int camsDown;
   final int camsOn;
   final int camsOnline;
+  final int camsTotal;
+  final bool notWatching; // every camera switched off (or none set up)
 
   const StatusLight({
     this.level = Level.clear,
@@ -57,6 +59,8 @@ class StatusLight {
     this.camsDown = 0,
     this.camsOn = 0,
     this.camsOnline = 0,
+    this.camsTotal = 0,
+    this.notWatching = false,
   });
 
   static final ValueNotifier<StatusLight> notifier =
@@ -112,6 +116,8 @@ class StatusLight {
       camsDown: _int(st['cams_down']),
       camsOn: on,
       camsOnline: online,
+      camsTotal: st['cams_total'] is num ? _int(st['cams_total']) : cams.length,
+      notWatching: st['not_watching'] == true,
     );
   }
 
@@ -128,7 +134,8 @@ class StatusLight {
         if (tier > 0) return 'Threat · armed';
         return emergency ? 'Emergency' : 'Siren on';
       case Level.watch:
-        return tier > 0 ? 'Watching · Tier $tier' : 'Watching';
+        if (tier > 0) return 'Watching · Tier $tier';
+        return notWatching ? 'Not watching' : 'Watching';
       case Level.clear:
         return armed ? 'Clear · armed' : 'Clear';
     }
@@ -145,7 +152,11 @@ class StatusLight {
         if (tier > 0) return 'Person at $where while armed.';
         return emergency ? 'Emergency mode is on.' : 'Siren is sounding.';
       case Level.watch:
-        return tier > 0 ? 'Someone at $where.' : '$where camera is offline.';
+        if (tier > 0) return 'Someone at $where.';
+        if (notWatching) {
+          return camsTotal == 0 ? 'No cameras set up.' : 'Cameras are off.';
+        }
+        return '$where camera is offline.';
       case Level.clear:
         return armed ? 'Armed. All clear.' : 'All clear.';
     }
@@ -164,11 +175,19 @@ class StatusLight {
         if (tier > 0) {
           return '$dist${tier == 1 ? 'snapshot saved' : 'recording a short clip'}';
         }
-        return '$camsOnline of $camsOn cameras watching';
+        if (notWatching) return "CAPHY isn't watching anything right now.";
+        return camText;
       case Level.clear:
-        return camsOn == 0
-            ? 'No cameras switched on'
-            : '$camsOnline of $camsOn cameras watching';
+        return camText;
     }
+  }
+
+  /// "1 of 2 cameras watching · 1 off" - same wording as the web console
+  /// (cams_text in server.py / caphyCamText in statuslight.js).
+  String get camText {
+    if (camsTotal == 0) return 'No cameras set up';
+    final off = camsTotal - camsOn;
+    final t = '$camsOnline of $camsTotal camera${camsTotal == 1 ? '' : 's'} watching';
+    return off > 0 ? '$t · $off off' : t;
   }
 }

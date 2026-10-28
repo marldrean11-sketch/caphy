@@ -1704,7 +1704,8 @@ class Api {
         // status light, computed on the laptop (server.py _status_light)
         for (final k in const [
           'level', 'tier', 'distance', 'siren_active', 'cams_down',
-          'camera', 'cameras'
+          'camera', 'cameras', 'cams_total', 'cams_on', 'cams_online',
+          'not_watching'
         ]) {
           if (st.containsKey(k)) out[k] = st[k];
         }

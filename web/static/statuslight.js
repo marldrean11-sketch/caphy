@@ -14,6 +14,16 @@
   var fails = 0;
   var HOLD_MS = 1200;
 
+  // "1 of 2 cameras watching · 1 off" - same wording as cams_text() in
+  // server.py, so the sidebar, header and Overview never disagree
+  function camText(st) {
+    var total = st.cams_total || 0, on = st.cams_on || 0, online = st.cams_online || 0;
+    if (!total) return "No cameras set up";
+    var t = online + " of " + total + " camera" + (total !== 1 ? "s" : "") + " watching";
+    return total - on ? t + " · " + (total - on) + " off" : t;
+  }
+  window.caphyCamText = camText;
+
   function apply(st) {
     root.dataset.level = st.level || "clear";
     root.dataset.armed = st.armed ? "true" : "false";
@@ -21,6 +31,23 @@
 
     var txt = document.getElementById("lvlTxt");
     if (txt) txt.textContent = describe(st);
+    if (st.level !== "offline") {
+      var sc = document.getElementById("sideCams");
+      if (sc) sc.textContent = camText(st);
+      var hc = document.getElementById("hdrCams");
+      if (hc) hc.textContent = (st.cams_online || 0) + " / " + (st.cams_total || 0) + " CAM";
+    }
+    // per-camera REC badges and "Camera off" overlays (data-*-cam = index
+    // into st.cameras)
+    var cams = st.cameras || [];
+    document.querySelectorAll("[data-rec-cam]").forEach(function (el) {
+      var c = cams[+el.dataset.recCam];
+      el.classList.toggle("show", !!(c && c.rec_active));
+    });
+    document.querySelectorAll("[data-off-cam]").forEach(function (el) {
+      var c = cams[+el.dataset.offCam];
+      el.classList.toggle("show", !!(c && !c.on));
+    });
     var meta = document.getElementById("sirenMeta");
     if (meta) {
       var d = st.distance ? " · " + st.distance + " m" : "";
@@ -39,6 +66,7 @@
     if (st.level === "threat") return st.siren_active ? "Threat · siren on" : "Threat";
     if (st.level === "watch") {
       if (st.tier) return "Watching · Tier " + st.tier;
+      if (st.not_watching) return st.cams_total ? "Cameras are off" : "No cameras";
       return st.cams_down === 1 ? "A camera is down" : st.cams_down + " cameras down";
     }
     return st.armed ? "Clear · armed" : "Clear";
@@ -93,6 +121,9 @@
   ["pointerup", "pointercancel"].forEach(function (ev) {
     document.addEventListener(ev, cancel, true);
   });
+
+  // "Turn on" on a Camera off overlay
+  window.caphyResumeCam = function (idx) { return post("/api/camera/" + idx + "/resume"); };
 
   window.caphyStatusPoll = poll;
   poll();

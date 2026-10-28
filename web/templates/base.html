@@ -1,5 +1,5 @@
 <!doctype html>
-<html data-level="clear" data-armed="{{ 'true' if armed else 'false' }}" data-siren="false">
+<html data-level="{{ light.level }}" data-armed="{{ 'true' if armed else 'false' }}" data-siren="{{ 'true' if light.siren_active else 'false' }}">
 <head>
   <meta charset="utf-8">
   <title>CAPHY - {{ title }}</title>
@@ -107,6 +107,7 @@
         {% if href == '/' %}<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         {% elif href == '/live' %}<svg viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>
         {% elif href == '/history' %}<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        {% elif href == '/activity' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
         {% elif href == '/logs' %}<svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
         {% elif href == '/settings' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         {% endif %}
@@ -116,7 +117,7 @@
     </div>
     <div class="sidefoot">
       <div class="st"><span class="dot armed"></span>
-        <span class="lvl-txt" id="lvlTxt">{{ 'Clear · armed' if armed else 'Clear' }}</span><small>{{ cam }}</small></div>
+        <span class="lvl-txt" id="lvlTxt">{{ level_label }}</span><small id="sideCams">{{ cam }}</small></div>
       <button type="button" class="hold sidearm{{ ' armed' if armed else '' }}" id="sideArmBtn" data-act="arm"><span class="fill"></span><span class="lbl">{{ 'Hold to disarm' if armed else 'Arm system' }}</span></button>
       <div class="fr">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
@@ -137,7 +138,7 @@
     <div class="header">
       <div class="ht"><h1>{{ title }}</h1>{% if subtitle %}<div class="sub">{{ subtitle|safe }}</div>{% endif %}</div>
       <div class="hr">
-        <span class="pill pg dotb">LIVE &middot; {{ ncam }} CAM</span>
+        <span class="pill pg dotb" id="hdrCams">{{ ncam }} / {{ ntotal }} CAM</span>
         <a class="iconbtn" href="/history" title="Alert History">
           {% if nalerts and nalerts > 0 %}<span class="badge">{{ nalerts if nalerts < 100 else '99+' }}</span>{% endif %}
           <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>

@@ -181,6 +181,16 @@ class Database:
         -- checked against Firebase Auth; it's applied for real only once
         -- the emailed PIN is confirmed, and the row is cleared right
         -- after, same lifecycle as signup_verify_pins.
+        -- who did what to the system, from where: arm/disarm, siren,
+        -- emergency, cameras, sign-ins, acknowledged alerts. Shown on the
+        -- dashboard's Activity page; never edited, only appended.
+        CREATE TABLE IF NOT EXISTS activity(
+            activity_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp    TEXT,
+            kind         TEXT,     -- arm, disarm, siren_on, siren_silence, camera_off, signin ...
+            text         TEXT,     -- human sentence, e.g. "Armed the system"
+            source       TEXT,     -- Web console / Phone / Phone (remote) / Voice assistant / Auto-arm schedule / System
+            actor        TEXT);    -- who, when known (email or display name)
         CREATE TABLE IF NOT EXISTS change_password_pins(
             pin_id       INTEGER PRIMARY KEY AUTOINCREMENT,
             uid          TEXT,
@@ -436,6 +446,23 @@ class Database:
             "WHERE COALESCE(dismissed,0)=0", (_now(),))
         self.conn.commit()
         return cur.rowcount
+
+    def add_activity(self, kind, text, source="", actor=""):
+        self.conn.execute(
+            "INSERT INTO activity(timestamp, kind, text, source, actor) VALUES(?,?,?,?,?)",
+            (_now(), kind, text, source or "", actor or ""))
+        self.conn.commit()
+
+    def recent_activity(self, limit=100, kinds=None, after_id=0):
+        """Newest first. `kinds` filters to those kind values; `after_id`
+        returns only rows newer than that id (for live polling)."""
+        q, args = "SELECT * FROM activity WHERE activity_id > ?", [after_id]
+        if kinds:
+            q += " AND kind IN (%s)" % ",".join("?" * len(kinds))
+            args += list(kinds)
+        q += " ORDER BY activity_id DESC LIMIT ?"
+        args.append(limit)
+        return [dict(r) for r in self.conn.execute(q, args)]
 
     def close(self):
         self.conn.close()
