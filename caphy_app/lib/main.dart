@@ -9,6 +9,8 @@ import 'package:app_links/app_links.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'api.dart';
 import 'theme.dart';
+import 'siren_takeover.dart';
+import 'status_light.dart';
 import 'widgets.dart';
 import 'home_tab.dart';
 import 'alerts_tab.dart';
@@ -174,7 +176,7 @@ class _AppRootState extends State<AppRoot> {
     return const Scaffold(
       backgroundColor: cBg,
       body: Center(
-        child: CaphyLogo(size: 180),
+        child: CaphyLogo(size: 180, level: Level.clear),
       ),
     );
   }
@@ -192,7 +194,10 @@ class _AppRootState extends State<AppRoot> {
       return MaterialApp(
         title: 'CAPHY',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(brightness: Brightness.dark, scaffoldBackgroundColor: cBg),
+        theme: ThemeData(
+            brightness: Brightness.dark,
+            fontFamily: fontSans,
+            scaffoldBackgroundColor: cBg),
         home: _splashContent(),
       );
     }
@@ -286,7 +291,10 @@ class _CaphyAppState extends State<CaphyApp> {
   Widget build(BuildContext context) {
     final theme = ThemeData(
       brightness: Brightness.dark,
+      fontFamily: fontSans,
       scaffoldBackgroundColor: cBg,
+      appBarTheme: const AppBarTheme(
+          backgroundColor: cBg, surfaceTintColor: Colors.transparent),
       primaryColor: cTeal,
       colorScheme: const ColorScheme.dark(
           primary: cTeal, secondary: cTeal2, surface: cPanel2),
@@ -1621,7 +1629,7 @@ class _HomeShellState extends State<HomeShell> {
                       borderRadius: BorderRadius.circular(9),
                       boxShadow: [
                         BoxShadow(
-                            color: cTeal.withValues(alpha: 0.35),
+                            color: Colors.transparent,
                             blurRadius: 10,
                             offset: const Offset(0, 3)),
                       ],
@@ -1659,22 +1667,27 @@ class _HomeShellState extends State<HomeShell> {
       MeTab(onLogout: widget.onLogout),
     ];
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(children: [
-          // App-wide connectivity banner: auto-switches to LAN / shows
-          // offline the moment internet drops (see ModeBanner).
-          const ModeBanner(),
-          Expanded(child: IndexedStack(index: _i, children: tabs)),
-        ]),
-      ),
+      body: Stack(children: [
+        SafeArea(
+          bottom: false,
+          child: Column(children: [
+            // App-wide connectivity banner: auto-switches to LAN / shows
+            // offline the moment internet drops (see ModeBanner).
+            const ModeBanner(),
+            Expanded(child: IndexedStack(index: _i, children: tabs)),
+          ]),
+        ),
+        // full-screen sheet while the siren is sounding (Live is tab 2)
+        Positioned.fill(
+            child: SirenTakeover(onOpenLive: () => setState(() => _i = 2))),
+      ]),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return TextStyle(
               fontSize: 11.5,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: selected ? cTeal2 : cMuted,
             );
           }),
@@ -1685,8 +1698,9 @@ class _HomeShellState extends State<HomeShell> {
           }),
         ),
         child: NavigationBar(
-          backgroundColor: cPanel,
-          indicatorColor: cTeal2.withValues(alpha: 0.18),
+          backgroundColor: cBg,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: cPanel2,
           selectedIndex: _i,
           onDestinationSelected: (v) => setState(() => _i = v),
           destinations: const [

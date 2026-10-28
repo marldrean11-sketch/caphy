@@ -1,17 +1,18 @@
 <!doctype html>
-<html>
+<html data-level="clear" data-armed="{{ 'true' if armed else 'false' }}" data-siren="false">
 <head>
   <meta charset="utf-8">
   <title>CAPHY - {{ title }}</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/caphy_favicon_64.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_ver }}">
+  <script src="{{ url_for('static', filename='statuslight.js') }}?v={{ css_ver }}" defer></script>
 </head>
 <body>
 <div class="app-titlebar" id="appTitlebar">
     <div class="atb-brand">
-      <svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+      <svg class="caphy-logo" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="atbg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#5b7bff"></stop><stop offset="1" stop-color="#a78bfa"></stop>
+          <stop offset="0" class="g1"></stop><stop offset="1" class="g2"></stop>
         </linearGradient></defs>
         <path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z" fill="url(#atbg)"></path>
       </svg>
@@ -81,23 +82,24 @@
       <div class="logo" onclick="showLogoAnimation();" style="cursor:pointer;" title="Click to see CAPHY">
         <svg class="caphy-logo" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
           <defs><linearGradient id="cg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#5b7bff"></stop><stop offset="1" stop-color="#a78bfa"></stop>
+            <stop offset="0" class="g1"></stop><stop offset="1" class="g2"></stop>
           </linearGradient>
           <clipPath id="cc"><path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"></path></clipPath>
           <clipPath id="ce"><path d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z"></path></clipPath></defs>
+          <path class="halo" d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"></path>
           <path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z" fill="url(#cg)"></path>
           <g clip-path="url(#cc)">
-            <path class="eye" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0a1024"></path>
+            <path class="eye" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0E0C15"></path>
             <g clip-path="url(#ce)">
               <g class="pupil">
-                <circle cx="48" cy="46" r="12" fill="#a78bfa"></circle>
-                <circle cx="52" cy="41" r="2.5" fill="#cfe0ff"></circle>
+                <circle class="iris" cx="48" cy="46" r="12"></circle>
+                <circle cx="52" cy="41" r="2.5" fill="#fff" opacity=".85"></circle>
               </g>
             </g>
           </g>
         </svg>
       </div>
-      <div><b>CAPHY</b><small>AI SECURITY</small></div>
+      <div><b>CAPHY</b><small>HOME SECURITY</small></div>
     </div>
     <div class="nav">
     {% for href, label in nav %}
@@ -113,8 +115,9 @@
     {% endfor %}
     </div>
     <div class="sidefoot">
-      <div class="st"><span class="dot {{ 'armed' if armed else 'off' }}"></span>
-        System {{ 'ARMED' if armed else 'DISARMED' }}<small>{{ cam }}</small></div>
+      <div class="st"><span class="dot armed"></span>
+        <span class="lvl-txt" id="lvlTxt">{{ 'Clear · armed' if armed else 'Clear' }}</span><small>{{ cam }}</small></div>
+      <button type="button" class="hold sidearm{{ ' armed' if armed else '' }}" id="sideArmBtn" data-act="arm"><span class="fill"></span><span class="lbl">{{ 'Hold to disarm' if armed else 'Arm system' }}</span></button>
       <div class="fr">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
         <span class="frname" title="{{ user }}">{{ user }}</span> &middot; Homeowner &nbsp;<a href="/logout" style="color:var(--teal2)">Log out</a></div>
@@ -122,6 +125,10 @@
   </div>
 
   <div class="main">
+    <div class="sirenbar" role="alert"><div><div class="in">
+      <span>Siren on</span><span class="mono" id="sirenMeta"></span>
+      <button type="button" class="hold" data-act="silence"><span class="fill"></span><span class="lbl">Hold to silence</span></button>
+    </div></div></div>
     <div id="offlineBar" class="offlinebar" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
       <div><b>You're offline</b> &mdash; CAPHY is running in Local Mode. Only devices on the same Wi&#8209;Fi as this laptop can connect right now.
@@ -168,17 +175,17 @@
     <div class="logomodal">
       <svg class="caphy-logo-large" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" width="220" height="220">
         <defs><linearGradient id="cg2" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#5b7bff"></stop><stop offset="1" stop-color="#a78bfa"></stop>
+          <stop offset="0" class="g1"></stop><stop offset="1" class="g2"></stop>
         </linearGradient>
         <clipPath id="cc2"><path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"></path></clipPath>
         <clipPath id="ce2"><path d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z"></path></clipPath></defs>
         <path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z" fill="url(#cg2)"></path>
         <g clip-path="url(#cc2)">
-          <path class="eye" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0a1024"></path>
+          <path class="eye" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0E0C15"></path>
           <g clip-path="url(#ce2)">
             <g class="pupil">
-              <circle cx="48" cy="46" r="12" fill="#a78bfa"></circle>
-              <circle cx="52" cy="41" r="2.5" fill="#cfe0ff"></circle>
+              <circle class="iris" cx="48" cy="46" r="12"></circle>
+              <circle cx="52" cy="41" r="2.5" fill="#fff" opacity=".85"></circle>
             </g>
           </g>
         </g>
@@ -186,7 +193,7 @@
       <div class="caphy-wordmark" id="caphyWordmark" aria-label="CAPHY">
         <span style="animation-delay:.05s">C</span><span style="animation-delay:.15s">A</span><span style="animation-delay:.25s">P</span><span style="animation-delay:.35s">H</span><span style="animation-delay:.45s">Y</span>
       </div>
-      <div class="caphy-tagline">AI-Intelligent Security System</div>
+      <div class="caphy-tagline">Two-factor home security</div>
     </div>
   </div>
 
@@ -322,7 +329,7 @@
   <style>
     /* Logo animation modal */
     .logobg{position:fixed;top:0;left:0;width:100%;height:100%;
-      background:rgba(10,16,22,.97);backdrop-filter:blur(8px);z-index:9998;
+      background:rgba(11,10,16,.97);z-index:9998;
       display:flex;align-items:center;justify-content:center;
       opacity:0;visibility:hidden;pointer-events:none;
       transition:opacity .25s ease,visibility 0s linear .25s}
@@ -332,7 +339,7 @@
       opacity:0;transform:translateY(8px);
       transition:opacity .3s ease .05s,transform .3s ease .05s}
     .logobg.open .logomodal{opacity:1;transform:translateY(0)}
-    .caphy-logo-large{filter:drop-shadow(0 0 32px rgba(139,111,255,.55))}
+    .caphy-logo-large{filter:drop-shadow(0 0 32px var(--ct))}
     .caphy-logo-large .eye{transform-box:view-box;transform-origin:48px 46px;animation:blink 6s ease-in-out infinite}
     .caphy-logo-large .pupil{transform-box:view-box;transform-origin:48px 46px;
       animation:saccade 6s ease-in-out infinite, pupilhide 6s ease-in-out infinite}
@@ -358,9 +365,8 @@
     /* CAPHY wordmark - letters fade + slide up into place, one after another */
     .caphy-wordmark{margin-top:28px;display:flex;gap:6px;justify-content:center}
     .caphy-wordmark span{
-      display:inline-block;font-size:56px;font-weight:800;letter-spacing:2px;
-      line-height:1;background:linear-gradient(135deg,#a78bfa,#5b7bff);
-      -webkit-background-clip:text;background-clip:text;color:transparent;
+      display:inline-block;font-size:52px;font-weight:700;letter-spacing:.18em;
+      line-height:1;color:var(--text);
       opacity:0;transform:translateY(18px) scale(.9);
     }
     .caphy-wordmark.play span{

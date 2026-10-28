@@ -1,25 +1,44 @@
 /* ===================== CAPHY Security Console ===================== */
+@font-face{font-family:"IBM Plex Sans";font-weight:400;font-display:swap;src:url(fonts/IBMPlexSans-Regular.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:500;font-display:swap;src:url(fonts/IBMPlexSans-Medium.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:600;font-display:swap;src:url(fonts/IBMPlexSans-SemiBold.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:700 800;font-display:swap;src:url(fonts/IBMPlexSans-Bold.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-display:swap;src:url(fonts/IBMPlexMono-Regular.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:500;font-display:swap;src:url(fonts/IBMPlexMono-Medium.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:600 800;font-display:swap;src:url(fonts/IBMPlexMono-SemiBold.woff2) format("woff2")}
 :root{
-  /* CAPHY theme: near-black base, blue->purple gradient accents, indigo glass.
-     --teal (=blue) and --teal2 (=violet) var names kept so nothing breaks. */
-  --bg:#08080f; --bg2:#0c0c17; --navy:#0c0c17;
-  --panel:#12121f; --panel2:#15152599;      /* indigo glass cards */
-  --line:#232338; --line2:#2f2f4d;
-  --text:#eceafb; --muted:#9a97bd; --dim:#66638a;
-  /* blue -> purple gradient identity */
-  --blue:#4a7fff; --blue2:#5b9bff;
-  --purple:#8b6fff; --purple2:#a78bfa;
-  --electric:#4a7fff; --electric2:#5b9bff;
-  --teal:#4a7fff; --teal2:#a78bfa;           /* teal2 now = violet highlight */
-  --accent:#5b7bff; --accent2:#a78bfa;
-  --grad:linear-gradient(135deg,#4a7fff 0%,#7b6bff 55%,#a78bfa 100%);
-  --orange:#e0a44c; --red:#f0596b; --green:#4fd1a0;
-  --glow:rgba(96,110,255,.45); --glow-teal:rgba(167,139,250,.4);
-  /* glassmorphism surfaces */
-  --glass:rgba(24,22,45,.6); --glass-line:rgba(150,140,230,.14);
-  --glass-blur:blur(18px) saturate(1.2);
+  /* CAPHY brand: flat ink surfaces + 1px lines. The logo is the status
+     light, so the four status colours below mean status ONLY:
+       violet = clear, yellow = watching (Tier 1-2 / camera down),
+       red = threat (Tier 3 / armed + person / siren), gray = offline.
+     Primary actions are white-on-ink so they never read as an alert.
+     Old var names (--teal, --teal2, --orange, --green ...) are kept as
+     aliases so every page in web/server.py picks up the new palette. */
+  --ink:#0B0A10; --s1:#121118; --s2:#18171F; --s3:#201E29;
+  --violet:#8B6FFF; --yellow:#F2C14E; --gray:#55525F;
+  --sans:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,ui-monospace,monospace;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --bg:var(--ink); --bg2:#0E0D13; --navy:#0E0D13;
+  --panel:var(--s1); --panel2:var(--s1);
+  --line:#26242F; --line2:#33303D;
+  --text:#ECEAF2; --muted:#8E8A9B; --dim:#625E6E;
+  --red:#FF4D5E; --orange:var(--yellow); --green:var(--violet);
+  /* neutral action colour (buttons, toggles, active text) */
+  --teal:#ECEAF2; --teal2:#ECEAF2; --accent:#ECEAF2; --accent2:#ECEAF2;
+  --blue:var(--violet); --blue2:var(--violet); --purple:var(--violet); --purple2:#C9BCFF;
+  --electric:var(--violet); --electric2:var(--violet);
+  --grad:var(--violet);
+  --glow:transparent; --glow-teal:transparent;
+  --glass:var(--s1); --glass-line:var(--line); --glass-blur:none;
 }
-*{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI",Arial,sans-serif}
+/* status light: html[data-level] is set by static/statuslight.js from
+   /api/state, and every .caphy-logo / [data-level] child follows it */
+[data-level=clear]  {--c:var(--violet);--c1:#C9BCFF;--ci:#DCD2FF;--ct:rgba(139,111,255,.12)}
+[data-level=watch]  {--c:var(--yellow);--c1:#FFE7A8;--ci:#FFF2CC;--ct:rgba(242,193,78,.12)}
+[data-level=threat] {--c:var(--red);   --c1:#FFA2AB;--ci:#FFD6DA;--ct:rgba(255,77,94,.13)}
+[data-level=offline]{--c:var(--gray);  --c1:#7D7A88;--ci:#9C99A8;--ct:rgba(120,117,132,.12)}
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--sans)}
 body{background:var(--bg);color:var(--text);display:flex;min-height:100vh}
 a{text-decoration:none;color:inherit}
 
@@ -27,12 +46,19 @@ a{text-decoration:none;color:inherit}
 .side{width:230px;background:var(--bg2);border-right:1px solid var(--line2);
   padding:16px 0;flex-shrink:0;position:fixed;height:100vh;display:flex;flex-direction:column}
 .brand{display:flex;align-items:center;gap:11px;padding:4px 20px 18px}
-.logo{width:38px;height:38px;border-radius:10px;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 14px rgba(96,110,255,.35)}
-.logo svg{display:block}
-/* living CAPHY logo — real-eye look: curved almond lid blinks closed, pupil
-   sweeps up / right / down / left in one continuous orbit */
+.logo{width:38px;height:38px;display:flex;align-items:center;justify-content:center}
+.logo svg{display:block;overflow:visible}
+/* living CAPHY logo: the eye blinks and glances; colour = status light */
+.caphy-logo .g1,.caphy-logo-large .g1{stop-color:var(--c1,#C9BCFF);transition:stop-color .6s var(--ease)}
+.caphy-logo .g2,.caphy-logo-large .g2{stop-color:var(--c,#8B6FFF);transition:stop-color .6s var(--ease)}
+.caphy-logo .iris,.caphy-logo-large .iris{fill:var(--ci,#DCD2FF);transition:fill .6s var(--ease)}
+.caphy-logo .halo{fill:none;stroke:var(--c);stroke-width:3;opacity:0;transform-box:view-box;
+  transform-origin:48px 48px;transform:scale(1.16);transition:opacity .4s,stroke .6s}
+html[data-armed=true] .caphy-logo .halo{opacity:.6}
+html[data-level=offline] .caphy-logo .eye{animation:none;transform:scaleY(.06)}
+html[data-level=offline] .caphy-logo .pupil{animation:none;opacity:0}
+html[data-siren=true] .logo .caphy-logo{animation:caphy-pulse 1s ease-in-out infinite}
+@keyframes caphy-pulse{0%,100%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 12px var(--red))}}
 .caphy-logo .eye{transform-box:view-box;transform-origin:48px 46px;animation:caphy-blink 6s ease-in-out infinite}
 .caphy-logo .pupil{transform-box:view-box;transform-origin:48px 46px;
   animation:caphy-glance 6s ease-in-out infinite, caphy-pupil-hide 6s ease-in-out infinite}
@@ -48,15 +74,15 @@ a{text-decoration:none;color:inherit}
   87.5%{transform:translate(-5px,-4px)}
 }
 @keyframes caphy-pupil-hide{0%,92%,99%,100%{opacity:1}95%{opacity:0}}
-.brand b{font-size:19px;letter-spacing:3px}
-.brand small{display:block;color:var(--teal2);font-size:9px;letter-spacing:3px;margin-top:1px}
+.brand b{font-size:16px;font-weight:700;letter-spacing:.22em}
+.brand small{display:block;color:var(--dim);font:500 9.5px var(--mono);letter-spacing:.16em;margin-top:2px}
 .nav{margin-top:6px}
 .nav a{display:flex;align-items:center;gap:12px;padding:11px 22px;color:var(--muted);
   font-size:14px;border-left:3px solid transparent;transition:.15s}
 .nav a svg{width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.9}
 .nav a:hover{color:var(--text);background:rgba(255,255,255,.03)}
-.nav a.active{color:var(--text);background:rgba(96,110,255,.14);
-  border-left-color:var(--teal2);font-weight:600}
+.nav a.active{color:var(--text);background:transparent;
+  border-left-color:var(--c,var(--violet));font-weight:500;transition:border-color .6s}
 .sidefoot{margin-top:auto;padding:14px 20px 4px;border-top:1px solid var(--line);font-size:12px}
 .sidefoot .st{display:flex;align-items:center;gap:8px;font-weight:600}
 .sidefoot .st small{display:block;color:var(--dim);font-weight:400;font-size:11px;margin-left:16px}
@@ -65,13 +91,13 @@ a{text-decoration:none;color:inherit}
 /* a long email auto-shrinks (via fitText JS) to stay on ONE line inside the sidebar */
 .sidefoot .frname{white-space:nowrap;overflow:hidden;display:inline-block;min-width:0;max-width:100%;vertical-align:bottom}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.dot.armed{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dot.armed{background:var(--c,var(--violet))}
 .dot.off{background:var(--dim)}
 
 /* ---------------- main + header ---------------- */
 .main{flex:1;margin-left:230px;display:flex;flex-direction:column;min-height:100vh}
 .header{display:flex;justify-content:space-between;align-items:center;
-  padding:16px 30px;border-bottom:1px solid var(--line);background:rgba(13,21,28,.6)}
+  padding:16px 30px;border-bottom:1px solid var(--line);background:transparent}
 .header .ht{display:flex;align-items:center;justify-content:space-between;
   gap:12px;white-space:nowrap;overflow:hidden}
 .header .ht h1{font-size:21px;font-weight:700;white-space:nowrap;margin:0}
@@ -112,7 +138,7 @@ a{text-decoration:none;color:inherit}
 /* camera picker (Settings > Cameras) */
 .campick{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);
   border-radius:10px;margin-bottom:8px;cursor:pointer;background:var(--panel)}
-.campick.on{border-color:var(--teal2);background:rgba(96,110,255,.07)}
+.campick.on{border-color:var(--teal2);background:rgba(255,255,255,.05)}
 .campick input{width:17px;height:17px;accent-color:var(--teal2);flex:0 0 auto}
 .campick .cn{font-weight:600;color:var(--text)}
 .campick .ci{color:var(--dim);font-size:12px}
@@ -136,7 +162,7 @@ a{text-decoration:none;color:inherit}
   box-shadow:0 20px 60px rgba(0,0,0,.5);animation:modalpop .16s ease-out}
 @keyframes modalpop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
 .modalicon{width:52px;height:52px;border-radius:50%;margin:0 auto 14px;
-  display:flex;align-items:center;justify-content:center;background:rgba(96,110,255,.14);color:var(--teal2)}
+  display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);color:var(--teal2)}
 .modalicon svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8}
 .modalicon.danger{background:rgba(229,72,77,.14);color:var(--red)}
 .modaltitle{font-size:16px;font-weight:700;margin-bottom:8px}
@@ -149,7 +175,7 @@ a{text-decoration:none;color:inherit}
 .pill{padding:4px 13px;border-radius:20px;font-size:12px;font-weight:700;
   border:1px solid;display:inline-flex;align-items:center;gap:6px}
 .pill.dotb::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
-.p1{background:rgba(96,110,255,.14);color:var(--teal2);border-color:rgba(96,110,255,.5)}
+.p1{background:rgba(255,255,255,.05);color:var(--teal2);border-color:rgba(255,255,255,.05)}
 .p2{background:rgba(244,162,97,.14);color:var(--orange);border-color:rgba(244,162,97,.5)}
 .p3{background:rgba(229,72,77,.14);color:var(--red);border-color:rgba(229,72,77,.5)}
 .pg{background:rgba(63,185,80,.14);color:var(--green);border-color:rgba(63,185,80,.5)}
@@ -240,7 +266,7 @@ img.feed{width:100%;border-radius:12px;background:#000;display:block}
 .camstateicon{width:56px;height:56px;border-radius:16px;display:flex;
   align-items:center;justify-content:center}
 .camstateicon svg{width:26px;height:26px;fill:none;stroke-width:2}
-.camstateicon.loading{background:rgba(63,215,196,.12);border:1px solid rgba(63,215,196,.35)}
+.camstateicon.loading{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.05)}
 .camstateicon.loading svg{stroke:var(--teal2)}
 .camstateicon.error{background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.35)}
 .camstateicon.error svg{stroke:var(--red)}
@@ -252,7 +278,7 @@ img.feed{width:100%;border-radius:12px;background:#000;display:block}
 .camretrybtn{display:inline-flex;align-items:center;gap:6px;margin-top:4px;
   padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);
   color:var(--teal2);font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}
-.camretrybtn:hover{border-color:var(--teal2);background:rgba(63,215,196,.08)}
+.camretrybtn:hover{border-color:var(--teal2);background:rgba(255,255,255,.05)}
 .camretrybtn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
 
 /* ---------------- status pill row (System/Camera/Night Vision/Siren/
@@ -269,7 +295,7 @@ img.feed{width:100%;border-radius:12px;background:#000;display:block}
   transition:.15s}
 .sb::before{content:'';width:7px;height:7px;border-radius:50%;
   background:var(--dim);flex-shrink:0;transition:.15s}
-.sb.on{background:rgba(96,110,255,.14);border-color:var(--accent2);color:var(--accent2)}
+.sb.on{background:rgba(255,255,255,.05);border-color:var(--accent2);color:var(--accent2)}
 .sb.on::before{background:var(--accent2);box-shadow:0 0 6px var(--accent2)}
 /* Emergency and Siren read as danger/warning when on, not the default
    accent violet - matches the phone's StateChip onColor overrides
@@ -357,7 +383,7 @@ img.feed{width:100%;border-radius:12px;background:#000;display:block}
   color:var(--muted);background:var(--panel);font-family:inherit;cursor:pointer;
   display:inline-block;text-decoration:none;line-height:normal}
 .fpill:focus{outline:2px solid var(--teal2);outline-offset:1px}
-.fpill.active{background:rgba(96,110,255,.16);border-color:var(--teal2);color:var(--teal2);font-weight:700}
+.fpill.active{background:rgba(255,255,255,.05);border-color:var(--teal2);color:var(--teal2);font-weight:700}
 .snapav{width:30px;height:30px;border-radius:7px;background:var(--bg2);
   display:flex;align-items:center;justify-content:center;color:var(--orange)}
 .snapav svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
@@ -388,12 +414,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
   border-radius:5px 5px 0 0;background:rgba(255,255,255,.025)}
 .bar::after{content:"";width:100%;height:var(--h,6%);border-radius:5px 5px 0 0;
   background:linear-gradient(180deg,#8b6fff,#4a7fff);
-  box-shadow:0 0 12px rgba(96,110,255,.35);transition:.18s ease}
+  box-shadow:0 0 12px rgba(255,255,255,.05);transition:.18s ease}
 .bar.warm::after{background:linear-gradient(180deg,#f2c078,var(--orange));
   box-shadow:0 0 12px rgba(224,164,76,.4)}
 .bar.hot::after{background:linear-gradient(180deg,#ff8a86,var(--red));
   box-shadow:0 0 14px rgba(229,84,78,.45)}
-.bar:hover{background:rgba(96,110,255,.08)}
+.bar:hover{background:rgba(255,255,255,.05)}
 .bar:hover::after{filter:brightness(1.18)}
 /* hover tooltip: hour + alert count */
 .bar .bartip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;
@@ -479,70 +505,64 @@ label{display:block;color:var(--muted);font-size:12px;margin:14px 0 4px}
 .loginbox{background:var(--panel2);border:1px solid var(--line2);border-radius:16px;
   padding:36px;width:360px;margin:auto;align-self:center}
 
-/* ===================== PREMIUM GLASSMORPHISM PASS ===================== */
-/* Layered navy gradient backdrop so the glass surfaces have depth to sit on */
-body{
-  background:
-    radial-gradient(1100px 600px at 80% -8%, rgba(96,110,255,.10), transparent 60%),
-    radial-gradient(900px 520px at 8% 108%, rgba(167,139,250,.06), transparent 55%),
-    linear-gradient(180deg, #080d1a 0%, #070b16 100%);
-  background-attachment:fixed;
+/* ===================== FLAT PASS =====================
+   Replaces the old glassmorphism layer: flat ink, hairline borders, no
+   gradients or blur. Status colours only appear where they mean status. */
+body{background:var(--ink)}
+.side{background:var(--bg2);border-right:1px solid var(--line)}
+.header{position:relative;z-index:500;isolation:isolate;border-bottom:1px solid var(--line)}
+.card,.panel,.modalcard,.loginbox,.setwrap,.tiercard{background:var(--s1);border:1px solid var(--line);box-shadow:none}
+.detbox{background:rgba(11,10,16,.86);border:1px solid var(--line2)}
+.card::before{box-shadow:none}
+/* tiers follow the status light: Tier 1-2 = watching (yellow), Tier 3 = threat (red) */
+.p1,.pill.p1{background:rgba(242,193,78,.12);color:var(--yellow);border-color:rgba(242,193,78,.45)}
+.arow.t1,.arow.t2{border-left-color:var(--yellow)}
+.tiercard.t1,.tiercard.t2{border-top-color:var(--yellow)}
+.tiercard.t1 .tl,.tiercard.t2 .tl{color:var(--yellow)}
+.card.a1::before,.card.a1 .foot .d{background:var(--violet)}
+.fpill.active{background:transparent;color:var(--text);border-color:var(--text);font-weight:600}
+.btn{background:var(--text);color:var(--ink);font-weight:600}
+.btn:hover{filter:brightness(.92)}
+.btn.ghost{background:transparent}
+.ctrlbtn.primary.active{background:var(--text);border-color:var(--text);color:var(--ink)}
+.sb.on{background:var(--ct,rgba(139,111,255,.12));border-color:var(--line2);color:var(--text)}
+.sb.on::before{background:var(--text);box-shadow:none}
+/* chart bars are counts, not status, so they stay neutral */
+.bar::after{background:#4A4658;box-shadow:none}
+.bar.warm::after{background:#77738A;box-shadow:none}
+.bar.hot::after{background:var(--text);box-shadow:none}
+.bar .bartip b{color:var(--text)}
+.thumb,.viewbtn{border-color:var(--line2)}
+.panel .link,.offlinebar a{color:var(--text);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
+input:focus,select:focus{outline:none;border-color:var(--text);box-shadow:none}
+.log,.logline,.mono,.card .v,.tiercard .tv,.axis,.arow .tm,.pager .muted,td.mono{font-family:var(--mono)}
+.card .v{font-weight:600}
+.header .ht h1{font-weight:600}
+h1,h2{font-weight:600}
+.logpanel{background:var(--bg2)}
+.offlinebar{background:var(--s3);border-bottom:1px solid var(--line2);color:var(--muted);box-shadow:none}
+.offlinebar b{color:var(--text)}
+.modalicon{background:var(--s3);color:var(--text)}
+.camstateicon.loading{background:var(--s3);border-color:var(--line2)}
+/* siren bar: slides down under the header whenever the siren is sounding */
+.sirenbar{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s var(--ease);background:var(--red);color:#1A0507}
+.sirenbar>div{overflow:hidden}
+.sirenbar .in{display:flex;align-items:center;gap:14px;padding:10px 30px;font-weight:600;font-size:13.5px}
+.sirenbar .in .mono{font-weight:500;opacity:.8;font-size:12.5px}
+html[data-siren=true] .sirenbar{grid-template-rows:1fr}
+.sirenbar .hold{margin-left:auto;background:#1A0507;color:#fff;border:1px solid #1A0507}
+/* hold-to-confirm: fills over 1.2 s so disarm / silence can't be an accidental tap */
+.hold{position:relative;overflow:hidden;border-radius:8px;padding:8px 16px;font:600 13px var(--sans);
+  cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;min-width:150px}
+.hold .fill{position:absolute;inset:0;background:currentColor;opacity:.2;transform:scaleX(0);transform-origin:left;transition:transform .2s}
+.hold.holding .fill{transform:scaleX(1);transition:transform 1.2s linear}
+.hold .lbl{position:relative}
+.hold>*{pointer-events:none}
+/* sidebar status line follows the status light */
+.sidefoot .st .lvl-txt{color:var(--c,var(--violet));transition:color .6s}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
 }
-/* Sidebar as a frosted navy rail with a subtle electric edge glow */
-.side{
-  background:linear-gradient(180deg, rgba(14,22,40,.86), rgba(10,16,32,.9));
-  backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-  border-right:1px solid var(--glass-line);
-  box-shadow:1px 0 0 rgba(96,110,255,.06), 14px 0 40px rgba(0,0,0,.28);
-}
-.nav a.active{
-  background:linear-gradient(90deg, rgba(96,110,255,.18), rgba(96,110,255,.04));
-  box-shadow:inset 0 0 0 1px rgba(96,110,255,.14);
-}
-/* Header as a translucent frosted bar.
-   isolation:isolate pins the header (and everything inside it, including
-   the profile dropdown) as its own stacking layer so its z-index is
-   compared as a whole against .content -- otherwise each backdrop-filter
-   card below creates its own stacking context and can visually paint over
-   the dropdown even though .profilemenu has a much higher z-index, because
-   that z-index only wins comparisons *within* the nearest shared stacking
-   context, not globally. */
-.header{
-  background:rgba(12,19,34,.55);
-  backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-  border-bottom:1px solid var(--glass-line);
-  position:relative; z-index:500; isolation:isolate;
-}
-/* Cards + panels -> slate-blue glass with hairline highlight + soft depth */
-.card, .panel, .modalcard, .loginbox, .setwrap, .tiercard, .detbox{
-  background:var(--glass) !important;
-  backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-  border:1px solid var(--glass-line) !important;
-  box-shadow:0 8px 30px rgba(3,7,18,.4), inset 0 1px 0 rgba(148,178,235,.06);
-}
-.card:hover, .panel:hover{border-color:rgba(96,110,255,.28) !important;transition:.2s}
-/* KPI top accent bars get a soft glow */
-.card::before{box-shadow:0 0 14px currentColor;opacity:.9}
-.card.a1::before{box-shadow:0 0 16px rgba(96,110,255,.6)}
-.card.a4::before{box-shadow:0 0 16px rgba(167,139,250,.55)}
-/* Pills / active filters: dual electric-blue + teal identity */
-.pill.p1, .fpill.active{
-  background:rgba(167,139,250,.12);color:var(--teal2);border-color:rgba(167,139,250,.45);
-}
-/* Primary buttons -> electric-blue gradient with glow */
-.btn:not(.ghost):not(.danger){
-  background:linear-gradient(135deg,#4a7fff,#7b6bff 60%,#a78bfa);color:#fff;
-  box-shadow:0 6px 18px rgba(96,110,255,.4);
-}
-.btn:not(.ghost):not(.danger):hover{filter:brightness(1.07)}
-/* Snapshot / thumbnails keep teal edge */
-.thumb, .viewbtn{border-color:rgba(167,139,250,.4)}
-/* Focus rings -> electric blue */
-input:focus, select:focus{outline:none;border-color:var(--electric);
-  box-shadow:0 0 0 3px rgba(96,110,255,.16)}
-/* Cleaner typography rhythm */
-body, .card .k, .panel h2{letter-spacing:.2px}
-h1,h2{font-weight:700}
 
 /* ---------------- custom app title bar (frameless desktop window) ----------------
    The packaged desktop app runs the pywebview window with frameless=True (no
@@ -584,3 +604,35 @@ body.has-app-titlebar .main{padding-top:36px}
 /* Hidden by default; shown only inside the packaged desktop window once
    pywebview's JS bridge confirms it's actually running there (see script). */
 .app-titlebar .atb-btns{display:none}
+/* sidebar arm / hold-to-disarm */
+.sidearm{width:100%;margin-top:12px;background:var(--text);color:var(--ink);border:1px solid var(--text)}
+.sidearm.armed{background:transparent;color:var(--text);border-color:var(--line2)}
+
+/* ---------------- dashboard status hero ---------------- */
+.hero{display:flex;gap:24px;align-items:center;padding:6px 0 22px}
+.hero .biglogo{width:96px;height:96px;flex-shrink:0}
+.hero .state{font:500 11.5px var(--mono);letter-spacing:.14em;color:var(--c);text-transform:uppercase;transition:color .6s;margin-bottom:6px}
+.hero .say{font-size:26px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.hero .hsub{color:var(--muted);margin-top:6px;font-size:13.5px}
+.roll{animation:roll .45s var(--ease)}
+@keyframes roll{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+html[data-siren=true] .hero .caphy-logo{animation:caphy-pulse 1s ease-in-out infinite}
+.meter{margin:0 0 22px}
+.meter .track{position:relative;height:30px;display:grid;grid-template-columns:55fr 20fr 25fr;border-radius:6px;border:1px solid var(--line)}
+.meter .band{display:flex;align-items:center;padding:0 10px;font:500 11px var(--mono);color:var(--dim);border-right:1px solid var(--line);transition:background .4s,color .4s}
+.meter .band:last-child{border-right:0}
+.meter .band.hit{color:var(--text);background:var(--ct)}
+.meter .mk{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--c);left:0;opacity:0;transition:left .6s var(--ease),opacity .3s,background .6s}
+.meter .mk span{position:absolute;top:-21px;left:50%;transform:translateX(-50%);font:600 11px var(--mono);color:var(--c);white-space:nowrap}
+.meter .scale{display:flex;justify-content:space-between;font:400 10.5px var(--mono);color:var(--dim);margin-top:6px}
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;background:var(--s1)}
+.statrow div{padding:12px 16px}
+.statrow div+div{border-left:1px solid var(--line)}
+.statrow b{display:block;font:600 20px var(--mono)}
+.statrow span{font-size:11.5px;color:var(--dim)}
+@media(max-width:800px){.hero{flex-direction:column;align-items:flex-start}.statrow{grid-template-columns:repeat(2,1fr)}
+  .statrow div:nth-child(3){border-left:0}.statrow div:nth-child(n+3){border-top:1px solid var(--line)}}
+.sidefoot .st{flex-wrap:wrap}
+.sidefoot .st small{flex-basis:100%;margin-left:17px}
+.pg,.pill.pg{background:transparent;color:var(--muted);border-color:var(--line2)}
+.pill.pg.dotb::before{background:var(--c,var(--violet))}

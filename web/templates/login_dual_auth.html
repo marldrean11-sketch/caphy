@@ -5,85 +5,27 @@
   <title>CAPHY - Sign In</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
-    body{align-items:center;justify-content:center;min-height:100vh;overflow:hidden;position:relative;
-      background:radial-gradient(130% 100% at 50% 4%, #161233 0%, #0b0a1a 52%, #07060f 100%)}
-    .box{backdrop-filter:blur(18px) saturate(1.2)}
+    body{align-items:center;justify-content:center;min-height:100vh;position:relative;background:var(--ink)}
+    @media(prefers-reduced-motion:reduce){.shield{animation:none}}
 
-    /* ---- animated ambient background ---- */
-    .bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
-    /* drifting gradient blobs */
-    .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;mix-blend-mode:screen}
-    .blob.b1{width:520px;height:520px;left:-120px;top:-100px;
-      background:radial-gradient(circle,#4a7fff,transparent 70%);animation:drift1 18s ease-in-out infinite}
-    .blob.b2{width:460px;height:460px;right:-140px;top:8%;
-      background:radial-gradient(circle,#8b6fff,transparent 70%);animation:drift2 22s ease-in-out infinite}
-    .blob.b3{width:600px;height:600px;left:20%;bottom:-220px;
-      background:radial-gradient(circle,#a78bfa,transparent 70%);animation:drift3 26s ease-in-out infinite}
-    @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(120px,80px) scale(1.15)}}
-    @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-100px,120px) scale(1.1)}}
-    @keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(80px,-90px) scale(1.2)}}
+    .wrap{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:100%;padding:24px 16px;
+      animation:fadeUp .6s var(--ease) both}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    .topbrand{text-align:center;margin-bottom:26px}
+    /* the logo's eye follows the cursor while you sign in (script below) */
+    .shield{width:112px;height:112px;margin:0 auto 18px;display:block;overflow:visible;cursor:pointer}
+    .shield.pop{animation:pop .45s var(--ease)}
+    @keyframes pop{40%{transform:scale(1.08)}}
+    .shield .g1{stop-color:#C9BCFF}.shield .g2{stop-color:var(--violet)}
+    .shield .eyelid{transform-box:view-box;transform-origin:48px 46px}
+    .shield .eyelid.blink{animation:blink .24s ease-in-out}
+    @keyframes blink{50%{transform:scaleY(.06)}}
+    .shield .pupil{transition:transform .25s var(--ease)}
+    .topbrand b{display:block;font-size:30px;letter-spacing:.22em;font-weight:700;color:var(--text);padding-left:.22em}
+    .topbrand small{display:block;color:var(--dim);font:500 11px var(--mono);letter-spacing:.18em;margin-top:6px}
 
-    /* slowly rotating concentric rings behind the logo */
-    .rings{position:fixed;top:-16%;left:50%;transform:translateX(-50%);width:820px;height:820px;
-      pointer-events:none;z-index:0;opacity:.5;animation:spin 60s linear infinite}
-    .rings span{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px solid rgba(140,120,255,.16)}
-    .rings span:nth-child(1){width:820px;height:820px}
-    .rings span:nth-child(2){width:610px;height:610px;border-color:rgba(140,120,255,.22);
-      border-style:dashed;animation:spin-rev 40s linear infinite}
-    .rings span:nth-child(3){width:420px;height:420px;border-color:rgba(167,139,250,.32)}
-    .rings span:nth-child(4){width:250px;height:250px;border-color:rgba(167,139,250,.45);
-      box-shadow:0 0 70px rgba(120,110,255,.4);animation:pulse 5s ease-in-out infinite}
-    @keyframes spin{to{transform:translateX(-50%) rotate(360deg)}}
-    @keyframes spin-rev{to{transform:rotate(-360deg)}}
-    @keyframes pulse{0%,100%{box-shadow:0 0 60px rgba(120,110,255,.3)}50%{box-shadow:0 0 100px rgba(167,139,250,.55)}}
-
-
-    /* rising particles */
-    .particles{position:fixed;inset:0;z-index:0;pointer-events:none}
-    .particles i{position:absolute;bottom:-10px;width:3px;height:3px;border-radius:50%;
-      background:rgba(167,139,250,.7);box-shadow:0 0 8px rgba(120,110,255,.8);animation:rise linear infinite}
-    @keyframes rise{to{transform:translateY(-105vh);opacity:0}}
-    @media(prefers-reduced-motion:reduce){.blob,.rings,.rings span,.particles i,.shield,.primary::after{animation:none}}
-
-    .wrap{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:100%;
-      animation:fadeUp .7s cubic-bezier(.2,.7,.2,1) both}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-    .topbrand{text-align:center;margin-bottom:22px}
-    /* larger, interactive logo — floats gently, reacts to hover/press */
-    .shield{width:168px;height:168px;margin:0 auto 12px;cursor:pointer;display:block;
-      filter:drop-shadow(0 0 34px rgba(120,110,255,.6));
-      animation:floaty 5s ease-in-out infinite;
-      transition:transform .35s cubic-bezier(.2,.8,.2,1),filter .35s}
-    @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
-    .shield:hover{transform:scale(1.09) rotate(-3deg);filter:drop-shadow(0 0 48px rgba(167,139,250,.85))}
-    .shield:active{transform:scale(.96)}
-    .shield.pop{animation:pop .5s ease}
-    @keyframes pop{0%{transform:scale(1)}35%{transform:scale(1.18) rotate(6deg)}70%{transform:scale(.94) rotate(-3deg)}100%{transform:scale(1)}}
-
-    /* login logo — real-eye look: curved almond lid blinks closed, pupil sweeps
-       up / right / down / left in one continuous orbit */
-    .eyelogo .eye{transform-box:view-box;transform-origin:48px 46px;animation:eyelid-blink 6s ease-in-out infinite}
-    .eyelogo .pupil{transform-box:view-box;transform-origin:48px 46px;
-      animation:eyelid-look 6s ease-in-out infinite, eyelid-pupil-hide 6s ease-in-out infinite}
-    @keyframes eyelid-blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.05)}}
-    @keyframes eyelid-look{
-      0%,100%{transform:translate(0,-6px)}
-      12.5%{transform:translate(5px,-4px)}
-      25%{transform:translate(7px,0)}
-      37.5%{transform:translate(5px,4px)}
-      50%{transform:translate(0,6px)}
-      62.5%{transform:translate(-5px,4px)}
-      75%{transform:translate(-7px,0)}
-      87.5%{transform:translate(-5px,-4px)}
-    }
-    @keyframes eyelid-pupil-hide{0%,92%,99%,100%{opacity:1}95%{opacity:0}}
-    .topbrand b{font-size:52px;letter-spacing:9px;font-weight:800;
-      background:linear-gradient(135deg,#fff,#b9c6ff 50%,#c9b6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
-    .topbrand small{display:block;color:var(--accent2);font-size:12px;letter-spacing:6px;margin-top:3px}
-
-    .box{background:rgba(22,20,42,.72);border:1px solid var(--line2);border-radius:20px;padding:30px 34px;width:400px;
-      max-width:92vw;backdrop-filter:blur(18px) saturate(1.2);box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 0 1px rgba(120,110,255,.1)}
-    .box h2{font-size:24px;font-weight:800;text-align:center}
+    .box{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:30px 32px;width:400px;max-width:100%}
+    .box h2{font-size:22px;font-weight:600;text-align:center}
     .box .subtitle{color:var(--muted);font-size:13px;text-align:center;margin:4px 0 22px}
 
     .infield{position:relative;margin-bottom:14px;animation:fadeUp .6s ease both}
@@ -92,9 +34,8 @@
     .infield .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--dim);
       width:18px;height:18px;display:flex;align-items:center;justify-content:center;transition:color .25s}
     .infield input{width:100%;padding:13px 14px 13px 42px;border:1px solid var(--line2);border-radius:11px;
-      background:rgba(10,14,23,.6);color:var(--text);font-size:14px;transition:.25s}
-    .infield input:focus{outline:none;border-color:var(--accent2);
-      box-shadow:0 0 0 3px rgba(120,110,255,.18);background:rgba(14,16,30,.75);transform:translateY(-1px)}
+      background:var(--bg2);color:var(--text);font-size:14px;transition:border-color .2s}
+    .infield input:focus{outline:none;border-color:var(--text);box-shadow:none}
     .infield input:focus + .pwd-toggle,.infield input:focus ~ .ic{color:var(--accent2)}
     .infield:focus-within .ic{color:var(--accent2)}
     .pwd-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--dim);
@@ -106,36 +47,29 @@
     .remember input{width:16px;height:16px;padding:0;accent-color:var(--accent)}
     .forgot{color:var(--accent2);cursor:pointer}
 
-    .primary{position:relative;overflow:hidden;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
-      background:linear-gradient(135deg,#4a7fff,#7b6bff 60%,#a78bfa);background-size:180% 180%;color:#fff;border:none;border-radius:11px;
-      padding:14px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(120,110,255,.4);
-      transition:transform .2s,box-shadow .3s,background-position .6s;animation:fadeUp .6s ease both .3s}
-    .primary:hover{background-position:100% 0;box-shadow:0 12px 30px rgba(120,110,255,.55);transform:translateY(-1px)}
-    .primary:active{transform:translateY(1px) scale(.99)}
-    /* moving shine */
-    .primary::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
-      background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);
-      transform:skewX(-20deg);animation:shine 3.2s ease-in-out infinite}
-    @keyframes shine{0%{left:-60%}55%,100%{left:130%}}
-    .primary svg{transition:transform .25s}
+    .primary{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+      background:var(--text);color:var(--ink);border:none;border-radius:10px;
+      padding:13px;font-size:14px;font-weight:600;cursor:pointer;transition:filter .2s}
+    .primary:hover{filter:brightness(.92)}
+    .primary svg{transition:transform .25s var(--ease)}
     .primary:hover svg{transform:translateX(4px)}
     .divider{display:flex;align-items:center;margin:18px 0;gap:12px;color:var(--dim);font-size:12px}
     .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line2)}
     .google-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;
       border-radius:11px;border:1px solid var(--line2);background:#fff;color:#3c4043;font-size:14px;font-weight:600;cursor:pointer}
-    .google-btn:hover{background:#f4f6ff}
+    .google-btn:hover{background:#efeef3}
 
     .error{color:var(--red);font-size:12.5px;margin-top:10px;text-align:center}
     .success{color:var(--green);font-size:12.5px;margin-top:10px;text-align:center}
     .toggle-form{color:var(--muted);cursor:pointer;font-size:13px;text-align:center;margin-top:18px}
-    .toggle-form u{color:var(--accent2);font-weight:600}
+    .toggle-form u{color:var(--text);font-weight:600}
     .form-section{display:none}.form-section.active{display:block}
-    .hint{display:none;color:var(--muted);font-size:11.5px;background:rgba(10,14,23,.6);border:1px solid var(--line);
+    .hint{display:none;color:var(--muted);font-size:11.5px;background:var(--bg2);border:1px solid var(--line);
       border-radius:9px;padding:10px 12px;margin-top:10px;line-height:1.5}
     .caps-hint{display:none;color:var(--orange);font-size:11px;margin-top:6px;align-items:center;gap:6px}
     .caps-hint.show{display:flex}
     .footline{text-align:center;color:var(--muted);font-size:12.5px;margin-top:22px;line-height:1.7;z-index:2;position:relative}
-    .footline b{color:var(--accent2)}
+    .footline b{color:var(--text)}
     label.fl{display:block;color:var(--muted);font-size:11px;letter-spacing:1px;margin:0 0 6px 2px}
   </style>
 </head>
@@ -144,7 +78,7 @@
     <div class="atb-brand">
       <svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="atbg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#5b7bff"></stop><stop offset="1" stop-color="#a78bfa"></stop>
+          <stop offset="0" stop-color="#C9BCFF"></stop><stop offset="1" stop-color="#8B6FFF"></stop>
         </linearGradient></defs>
         <path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z" fill="url(#atbg)"></path>
       </svg>
@@ -209,37 +143,34 @@
   })();
   </script>
 
-  <div class="bg"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
-  <div class="rings"><span></span><span></span><span></span><span></span></div>
-  <div class="particles" id="particles"></div>
 
   <div class="wrap">
     <div class="topbrand">
-      <svg class="shield eyelogo" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+      <svg class="shield" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" aria-label="CAPHY">
         <defs><linearGradient id="dg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#5b7bff"></stop><stop offset="1" stop-color="#a78bfa"></stop>
+          <stop offset="0" class="g1"></stop><stop offset="1" class="g2"></stop>
         </linearGradient>
         <clipPath id="dc"><path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"></path></clipPath>
         <clipPath id="de"><path class="eyeclip" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z"></path></clipPath></defs>
         <path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z" fill="url(#dg)"></path>
-        <g clip-path="url(#dc)">
-          <path class="eye" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0a1024"></path>
+        <g clip-path="url(#dc)"><g class="eyelid">
+          <path d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0E0C15"></path>
           <g clip-path="url(#de)">
             <g class="pupil">
-              <circle cx="48" cy="46" r="12" fill="#a78bfa"></circle>
-              <circle cx="52" cy="41" r="2.5" fill="#cfe0ff"></circle>
+              <circle cx="48" cy="46" r="12" fill="#DCD2FF"></circle>
+              <circle cx="52" cy="41" r="2.5" fill="#fff" opacity=".85"></circle>
             </g>
           </g>
-        </g>
+        </g></g>
       </svg>
       <b>CAPHY</b>
-      <small>AI HOME SECURITY SYSTEM</small>
+      <small>HOME SECURITY</small>
     </div>
 
     <div class="box">
       <!-- SIGN IN -->
       <div id="signin-form" class="form-section active">
-        <h2>Welcome back!</h2>
+        <h2>Sign in</h2>
         <div class="subtitle">Sign in to access your CAPHY dashboard.</div>
 
         <form id="signin-email-form" method="post" action="{{ url_for('login') }}">
@@ -346,61 +277,26 @@
       </div>
     </div>
 
-    <div class="footline">Protect what matters most.<br><b>CAPHY</b> is always watching over your home.</div>
+    <div class="footline">Runs on this laptop. Works on local Wi-Fi when the internet is down.</div>
   </div>
 
   <script>
-    // spawn rising particles for the live background
-    (function(){
-      var box=document.getElementById('particles'); if(!box) return;
-      for(var i=0;i<28;i++){
-        var s=document.createElement('i');
-        s.style.left=(Math.random()*100)+'%';
-        var dur=(9+Math.random()*12);
-        s.style.animationDuration=dur+'s';
-        s.style.animationDelay=(-Math.random()*dur)+'s';
-        var sz=(2+Math.random()*3);
-        s.style.width=s.style.height=sz+'px';
-        s.style.opacity=(0.3+Math.random()*0.6);
-        box.appendChild(s);
-      }
-    })();
-
-    // resume the blink/look animation at the current wall-clock phase
-    (function(){var d=-(Date.now()%5000)+'ms';
-      document.querySelectorAll('.eyelogo .eye,.eyelogo .pupil')
-        .forEach(function(e){e.style.animationDelay=d;});})();
-
-    // interactive logo — click/tap it for a playful pop + a burst of sparks
+    // the eye follows the cursor (it's a security camera, after all),
+    // blinks now and then, and pops when tapped
     (function(){
       var logo=document.querySelector('.shield'); if(!logo) return;
+      var pupil=logo.querySelector('.pupil'), lid=logo.querySelector('.eyelid');
+      var still=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+      if(!still) document.addEventListener('pointermove', function(e){
+        var r=logo.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height*.48;
+        var dx=e.clientX-cx, dy=e.clientY-cy, d=Math.max(1,Math.hypot(dx,dy)), k=Math.min(1,d/260);
+        pupil.style.transform='translate('+(dx/d*9*k).toFixed(1)+'px,'+(dy/d*5*k).toFixed(1)+'px)';
+      });
+      (function blink(){ setTimeout(function(){
+        lid.classList.remove('blink'); void lid.getBBox(); lid.classList.add('blink'); blink();
+      }, 3500+Math.random()*3000); })();
       logo.addEventListener('click', function(){
         logo.classList.remove('pop'); void logo.offsetWidth; logo.classList.add('pop');
-        var box=document.getElementById('particles');
-        for(var i=0;i<10;i++){
-          var s=document.createElement('i');
-          s.style.left='50%'; s.style.bottom='auto'; s.style.top='30%';
-          s.style.width=s.style.height=(3+Math.random()*3)+'px';
-          var dur=(0.8+Math.random()*0.7);
-          s.style.transition='transform '+dur+'s ease-out, opacity '+dur+'s';
-          box.appendChild(s);
-          (function(el,ang){requestAnimationFrame(function(){
-            var d=90+Math.random()*70;
-            el.style.transform='translate('+Math.cos(ang)*d+'px,'+Math.sin(ang)*d+'px)';
-            el.style.opacity='0';
-          }); setTimeout(function(){el.remove();},dur*1000+50);})(s, (i/10)*Math.PI*2);
-        }
-      });
-    })();
-
-    // subtle mouse parallax on the ambient background
-    (function(){
-      var bg=document.querySelector('.bg'), rings=document.querySelector('.rings');
-      if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
-      document.addEventListener('mousemove', function(e){
-        var x=(e.clientX/window.innerWidth-0.5), y=(e.clientY/window.innerHeight-0.5);
-        if(bg) bg.style.transform='translate('+(x*22)+'px,'+(y*22)+'px)';
-        if(rings) rings.style.marginLeft=(x*14)+'px';
       });
     })();
     function toggleForms(){

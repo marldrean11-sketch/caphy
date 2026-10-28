@@ -1108,7 +1108,7 @@ class _LiveTabState extends State<LiveTab> {
                 ? []
                 : [
                     BoxShadow(
-                        color: cTeal.withValues(alpha: 0.35),
+                        color: Colors.transparent,
                         blurRadius: 18,
                         offset: const Offset(0, 6)),
                   ],

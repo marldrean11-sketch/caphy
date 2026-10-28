@@ -221,7 +221,7 @@ class _AskCaphyScreenState extends State<AskCaphyScreen> {
     Color healthColor;
     String healthLabel;
     if (!_sysStateReachable) {
-      healthColor = cRed;
+      healthColor = cGray;
       healthLabel = 'Unreachable';
     } else if (camsTotal > 0 && camsOnline < camsTotal) {
       healthColor = cOrange;
@@ -331,12 +331,7 @@ class _AskCaphyScreenState extends State<AskCaphyScreen> {
         children: [
           Row(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: const BoxDecoration(shape: BoxShape.circle, gradient: cGrad),
-                child: const Icon(Icons.shield, color: Colors.white, size: 26),
-              ),
+              const CaphyLogo(size: 56),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -673,12 +668,9 @@ class _AskCaphyScreenState extends State<AskCaphyScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 26,
-            height: 26,
-            margin: const EdgeInsets.only(top: 2),
-            decoration: BoxDecoration(shape: BoxShape.circle, gradient: cGrad),
-            child: const Icon(Icons.shield, size: 14, color: Colors.black),
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: CaphyLogo(size: 26, animate: false),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -851,7 +843,7 @@ class _AskCaphyScreenState extends State<AskCaphyScreen> {
                       gradient: cGrad,
                       boxShadow: [
                         BoxShadow(
-                            color: cTeal.withValues(alpha: 0.4),
+                            color: Colors.transparent,
                             blurRadius: 14,
                             offset: const Offset(0, 4)),
                       ],

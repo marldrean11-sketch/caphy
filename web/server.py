@@ -1185,10 +1185,18 @@ _siren = Siren()
 _siren_states = {}
 _siren_manual = False          # manual "Trigger Siren" override from the Live page
 _siren_lock = threading.Lock()
+_siren_silenced = set()        # cams whose current siren was silenced by hold-to-silence
+
+
+def _siren_wanted():
+    """True while any camera's detection siren (not silenced) or the manual
+    override wants the siren sounding. Caller holds _siren_lock."""
+    return _siren_manual or any(on and cam not in _siren_silenced
+                                for cam, on in _siren_states.items())
 
 
 def _recompute_siren():
-    if any(_siren_states.values()) or _siren_manual:
+    if _siren_wanted():
         _siren.start()
     else:
         _siren.stop()
@@ -1197,7 +1205,58 @@ def _recompute_siren():
 def _update_siren(cam_id, wants):
     with _siren_lock:
         _siren_states[cam_id] = wants
+        # a silence only lasts for the current incident: once this camera
+        # stops wanting the siren (person left / dropped below the siren
+        # tier), the next escalation sounds it again
+        if not wants:
+            _siren_silenced.discard(cam_id)
         _recompute_siren()
+
+
+def _silence_siren():
+    """Hold-to-silence from the console or phone: stops the siren for the
+    incident in progress without disarming. Detection, recording and the
+    red status light carry on - only the noise stops."""
+    global _siren_manual
+    with _siren_lock:
+        _siren_manual = False
+        for cam, on in _siren_states.items():
+            if on:
+                _siren_silenced.add(cam)
+        _recompute_siren()
+
+
+def _status_light():
+    """The single status the CAPHY logo shows, computed once here so the web
+    console and the phone (LAN /api/state or the cloud snapshot) always
+    agree on the same colour instead of each UI guessing its own:
+      clear  (violet) - nobody detected, every switched-on camera is up
+      watch  (yellow) - person at Tier 1-2, or a switched-on camera is down
+      threat (red)    - Tier 3, any person while armed, siren or emergency
+    "offline" (gray) is decided by the client: it's the state where it
+    can't reach this laptop at all, so the laptop can never report it."""
+    armed = _is_armed()
+    stats = [(w, w.get_stats()) for w in workers]
+    live = [s for w, s in stats if s.get("online")]
+    tier = max([s.get("tier", 0) or 0 for s in live] or [0])
+    at = next((w for w, s in stats
+               if s.get("online") and tier and s.get("tier") == tier), None)
+    distance = at.get_stats().get("distance") if at else None
+    down = [w for w, s in stats if not w.paused and not s.get("online")]
+    cams_down = len(down)
+    camera = at.name if at else (down[0].name if down else None)
+    with _siren_lock:
+        siren_active = bool(_siren_wanted())
+    if siren_active or _emergency_on or (tier and (armed or tier >= 3)):
+        level = "threat"
+    elif tier or cams_down:
+        level = "watch"
+    else:
+        level = "clear"
+    return {"level": level, "tier": tier,
+            "distance": distance if distance not in (None, "-") else None,
+            "siren_active": siren_active, "cams_down": cams_down,
+            "camera": camera}
 
 
 def scan_cameras(max_index=6):
@@ -1352,7 +1411,7 @@ function checkCameraConflict(){
   const dupes = picked.length !== new Set(picked).size;
   if(dupes){
     msg.textContent = 'Camera 1 and Camera 2 must be different devices.';
-    msg.style.color = 'var(--orange, #e5a13f)';
+    msg.style.color = 'var(--orange, var(--yellow))';
     document.getElementById('camApplyBtn').disabled = true;
   } else {
     msg.textContent = '';
@@ -1499,6 +1558,8 @@ def start_cloud_services():
                       daemon=True).start()
     _threading.Thread(target=_watch_command_listener_health,
                       daemon=True).start()
+    _threading.Thread(target=_watch_status_light, name="caphy-statuslight",
+                      daemon=True).start()
     try:
         from identity import get_device_identity
         from web.webrtc_stream import CallListener, AIORTC_AVAILABLE, AIORTC_IMPORT_ERROR
@@ -1598,6 +1659,7 @@ def _build_state_snapshot():
                  "recording": bool(w.manual_record)}
                 for w in workers
             ],
+            **_status_light(),
         }
     except Exception:
         return None
@@ -1632,6 +1694,26 @@ def _push_state_heartbeat_now(device_id=None):
     except Exception as e:
         print(f"[CAPHY] Heartbeat skipped (offline?): {e}")
         return False
+
+
+def _watch_status_light():
+    """Detections change the logo's status light without going through any
+    state-changing route, so nothing would push it to the cloud until the
+    next ~20s heartbeat - a phone off the LAN would still be violet while a
+    person walks up to the door. Checks once a second and pushes the moment
+    the level or tier changes."""
+    last = None
+    while True:
+        try:
+            st = _status_light()
+            cur = (st["level"], st["tier"])
+            if cur != last:
+                if last is not None:
+                    _push_state_async()
+                last = cur
+        except Exception:
+            pass
+        time.sleep(1)
 
 
 def _push_state_async():
@@ -1878,6 +1960,7 @@ def _execute_remote_command(device_id, cmd):
             # simply never worked, the same gap record() used to have.
             "nightvision": ("POST", f"/api/nightvision/{int(cmd_args.get('cam', 0) or 0)}", {}),
             "siren": ("POST", "/api/siren", {}),
+            "siren_silence": ("POST", "/api/siren/silence", {}),
             # Acknowledge (dismiss) an alert - added because the phone's
             # dismissAlert()/dismissAllAlerts() previously only ever tried
             # a DIRECT HTTP call to the laptop's LAN address, with no
@@ -2162,10 +2245,13 @@ NAV = [("/", "Dashboard"), ("/live", "Live Camera"),
 # even after a normal refresh. Appending ?v=<hash> to the <link> URL forces
 # the browser to fetch a fresh copy any time this file's contents change.
 def _css_version():
+    # covers statuslight.js too, since base.html versions it with the same hash
     try:
-        css_path = os.path.join(app.static_folder, "style.css")
-        with open(css_path, "rb") as f:
-            return hashlib.md5(f.read()).hexdigest()[:10]
+        h = hashlib.md5()
+        for name in ("style.css", "statuslight.js"):
+            with open(os.path.join(app.static_folder, name), "rb") as f:
+                h.update(f.read())
+        return h.hexdigest()[:10]
     except Exception:
         return "0"
 
@@ -2190,8 +2276,28 @@ def page(title, href, body, subtitle=""):
     shown_user = display_name if display_name else session.get("email", "admin")
     return render_template("base.html", title=title, page=href, nav=NAV, body=body,
                            subtitle=subtitle, ncam=online, user=shown_user,
-                           armed=st.get("armed", True), cam=cam, nalerts=unread,
+                           armed=_is_armed(), cam=cam, nalerts=unread,
                            css_ver=CSS_VER)
+
+
+_SHIELD = "M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"
+_EYE = "M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z"
+
+
+def logo_svg(uid, cls=""):
+    """The CAPHY shield+eye as inline SVG. Its colours come from CSS
+    (--c / --c1 / --ci), so it follows the status light like the sidebar
+    logo does. `uid` keeps the gradient / clip ids unique on the page."""
+    return (f'<svg class="caphy-logo {cls}" viewBox="0 0 96 96" aria-hidden="true">'
+            f'<defs><linearGradient id="lg{uid}" x1="0" y1="0" x2="1" y2="1">'
+            f'<stop offset="0" class="g1"/><stop offset="1" class="g2"/></linearGradient>'
+            f'<clipPath id="lc{uid}"><path d="{_SHIELD}"/></clipPath>'
+            f'<clipPath id="le{uid}"><path d="{_EYE}"/></clipPath></defs>'
+            f'<path class="halo" d="{_SHIELD}"/><path d="{_SHIELD}" fill="url(#lg{uid})"/>'
+            f'<g clip-path="url(#lc{uid})"><path class="eye" d="{_EYE}" fill="#0E0C15"/>'
+            f'<g clip-path="url(#le{uid})"><g class="pupil">'
+            f'<circle class="iris" cx="48" cy="46" r="12"/>'
+            f'<circle cx="52" cy="41" r="2.5" fill="#fff" opacity=".85"/></g></g></g></svg>')
 
 
 def tier_pill(t):
@@ -3087,15 +3193,15 @@ def api_health():
     is_online = internet_available()
     if is_online and pending > 0:
         sync_status = f"syncing · queue {pending}"
-        sync_color = "#5b8dff"  # Blue for syncing
+        sync_color = "var(--violet)"  # Blue for syncing
     elif is_online:
         sync_status = "synced"
-        sync_color = "#3fb98a"  # Green for synced
+        sync_color = "var(--violet)"  # Green for synced
     else:
         sync_status = f"offline · queue {pending}"
-        sync_color = "#e5544e"  # Red for offline
+        sync_color = "var(--red)"  # Red for offline
 
-    G, T, M, R = "#3fb98a", "#5b8dff", "#8d9bb5", "#e5544e"
+    G, T, M, R = "var(--violet)", "var(--violet)", "#8d9bb5", "var(--red)"
     if not yolo_ok:
         yolo_status, yolo_color = "off", R
     elif stalled:
@@ -3141,21 +3247,65 @@ def dashboard():
             cur_dist = s.get("distance", "-")
             break
 
-    # ---- KPI cards ----
-    threat_txt = ("Tier " + str(cur)) if cur else "Clear"
-    threat_foot = ("person &middot; %s m away" % cur_dist) if cur else "No active threat"
-    cam_foot = "all online" if online == ncam and ncam else ("%d online" % online)
+    # ---- status hero: big status-light logo + one plain sentence, then the
+    # distance meter. Rendered from the current state and kept live by
+    # static/statuslight.js ("caphy:state" event -> script below). ----
+    first_cam = workers[0].name if workers else "Camera"
     cards = f"""
-    <div class="cards">
-      <div class="card a1"><div class="k">Alerts Today</div><div class="v">{total}</div>
-        <div class="foot"><span class="d"></span>+{today} today</div></div>
-      <div class="card a4"><div class="k">Cameras Online</div><div class="v">{online} / {ncam}</div>
-        <div class="foot"><span class="d"></span>{cam_foot}</div></div>
-      <div class="card {'a2' if cur else 'a1'}"><div class="k">Current Status</div><div class="v">{threat_txt}</div>
-        <div class="foot"><span class="d"></span>{threat_foot}</div></div>
-      <div class="card a3"><div class="k">Pending Uploads</div><div class="v">{pending}</div>
-        <div class="foot"><span class="d"></span>offline queue</div></div>
-    </div>"""
+    <div class="hero">
+      {logo_svg("hero", "biglogo")}
+      <div><div class="state" id="hState">Clear</div>
+        <div class="say" id="hSay">{first_cam} is clear.</div>
+        <div class="hsub" id="hSub">{online} of {ncam} cameras watching</div></div>
+    </div>
+    <div class="meter">
+      <div class="track">
+        <div class="band" id="hb1">TIER 1 &middot; snapshot</div>
+        <div class="band" id="hb2">TIER 2 &middot; clip</div>
+        <div class="band" id="hb3">TIER 3 &middot; siren</div>
+        <div class="mk" id="hMk"><span id="hMkT"></span></div>
+      </div>
+      <div class="scale"><span>10 m</span><span>{config.TIER1_MIN_DIST:g} m</span><span>{config.TIER3_MAX_DIST:g} m</span><span>camera</span></div>
+    </div>
+    <div class="statrow">
+      <div><b>{today}</b><span>alerts today</span></div>
+      <div><b>{total}</b><span>alerts in total</span></div>
+      <div><b id="hCams">{online} / {ncam}</b><span>cameras online</span></div>
+      <div><b>{pending}</b><span>waiting to sync</span></div>
+    </div>
+    <script>
+    (function(){{
+      var T1={config.TIER1_MIN_DIST}, T3={config.TIER3_MAX_DIST}, FIRST={json.dumps(first_cam)};
+      function set(id,v){{var e=document.getElementById(id); if(!e||e.textContent===v) return;
+        e.textContent=v; e.classList.remove('roll'); void e.offsetWidth; e.classList.add('roll');}}
+      document.addEventListener('caphy:state', function(ev){{
+        var st=ev.detail, cam=st.camera||FIRST, d=st.distance?(st.distance+' m'):'';
+        var state='Clear', say=FIRST+' is clear.', sub='', on=0, tot=0;
+        (st.cameras||[]).forEach(function(c){{ if(c.on) tot++; if(c.on && c.online) on++; }});
+        sub = on+' of '+tot+' cameras watching';
+        if(st.level==='offline'){{ state='Offline'; say="Can't reach the CAPHY server."; sub='The page will reconnect on its own once it is back.'; }}
+        else if(st.level==='threat'){{
+          var act = st.siren_active ? 'siren on' : 'siren silenced';
+          if(st.tier>=3){{ state='Threat · Tier 3'; say='Person close to '+cam+'.'; sub=d+' · '+act+' · recording'; }}
+          else if(st.tier){{ state='Threat · armed'; say='Person at '+cam+' while armed.'; sub=d+' · Tier '+st.tier+' · '+act; }}
+          else {{ state = st.emergency ? 'Emergency' : 'Siren on'; say = st.emergency ? 'Emergency mode is on.' : 'Siren is sounding.'; sub='Turned on manually'; }}
+        }} else if(st.level==='watch'){{
+          if(st.tier){{ state='Watching · Tier '+st.tier; say='Someone at '+cam+'.'; sub=d+' · '+(st.tier===1?'snapshot saved':'recording a short clip'); }}
+          else {{ state='Watching'; say=cam+' camera is offline.'; sub='No frames from it. '+sub+'.'; }}
+        }} else if(st.armed){{ state='Clear · armed'; say='Armed. '+FIRST+' is clear.'; }}
+        set('hState',state); set('hSay',say); set('hSub',sub);
+        var hc=document.getElementById('hCams'); if(hc) hc.textContent=on+' / '+tot;
+        for(var i=1;i<=3;i++){{ var b=document.getElementById('hb'+i); if(b) b.classList.toggle('hit', st.tier===i && st.level!=='offline'); }}
+        var mk=document.getElementById('hMk'), dist=parseFloat(st.distance);
+        if(mk){{
+          if(st.tier && !isNaN(dist) && st.level!=='offline'){{
+            mk.style.opacity=1; mk.style.left=Math.max(0,Math.min(99.5,(10-dist)*10))+'%';
+            document.getElementById('hMkT').textContent=dist.toFixed(1)+' m';
+          }} else mk.style.opacity=0;
+        }}
+      }});
+    }})();
+    </script>"""
 
     # ---- live feed panel (all active cameras, compact) ----
     if workers:
@@ -3216,8 +3366,8 @@ def dashboard():
       <div class="chart">{bars}</div>
       <div class="axis"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
     </div>"""
-    return page("Dashboard", "/", body,
-                subtitle='Live System Overview &middot; Updated Just Now')
+    return page("Overview", "/", body,
+                subtitle='Live &middot; updates every 2 s')
 
 
 @app.route("/live")
@@ -3748,10 +3898,10 @@ def live():
          in the row - this is the switch that turns the whole feed off, so
          it needs to stand out at a glance, not blend in. */
       .camtoggle{background:rgba(63,185,80,.12) !important;border-color:rgba(63,185,80,.5) !important;
-        color:#3fb950 !important}
-      .camtoggle:hover{background:rgba(63,185,80,.2) !important;border-color:#3fb950 !important}
-      .camtoggle.active{background:var(--orange, #e5a13f) !important;color:#04110e !important;
-        border-color:var(--orange, #e5a13f) !important;box-shadow:0 0 0 3px rgba(229,161,63,.18)}
+        color:var(--violet) !important}
+      .camtoggle:hover{background:rgba(63,185,80,.2) !important;border-color:var(--violet) !important}
+      .camtoggle.active{background:var(--orange, var(--yellow)) !important;color:#04110e !important;
+        border-color:var(--orange, var(--yellow)) !important;box-shadow:0 0 0 3px rgba(229,161,63,.18)}
       .camtoggle.active:hover{filter:brightness(1.08)}
 
       /* Close all cameras button */
@@ -3879,6 +4029,14 @@ def api_siren():
         _recompute_siren()
     _push_state_async()
     return jsonify({"on": _siren_manual})
+
+
+@app.route("/api/siren/silence", methods=["POST"])
+def api_siren_silence():
+    """Stop the siren for the current incident (hold-to-silence)."""
+    _silence_siren()
+    _push_state_async()
+    return jsonify({"ok": True, "siren_active": False})
 
 
 @app.route("/api/frame/<int:cam>")
@@ -4415,7 +4573,8 @@ def api_camera_name(cam):
 @app.route("/camera-setup")
 def camera_setup_page():
     """Serve camera selector UI for plug-and-play setup"""
-    return send_file("web/templates/camera_selector.html", mimetype="text/html")
+    return send_file(os.path.join(app.root_path, "templates", "camera_selector.html"),
+                     mimetype="text/html")
 
 
 @app.route("/api/detector/cameras", methods=["GET"])
@@ -4560,6 +4719,7 @@ def _do_action(action):
     elif action == "camera_off":      _set_camera(False)
     elif action == "siren_on":        _set_siren(True)
     elif action == "siren_off":       _set_siren(False)
+    elif action == "siren_silence":   _silence_siren()
     elif action == "night_vision_on":  _set_night_vision(True)
     elif action == "night_vision_off": _set_night_vision(False)
     elif action == "take_snapshot":   _save_snapshot(0)
@@ -4822,6 +4982,8 @@ def api_state():
         "siren": bool(_siren_manual),
         "emergency": bool(_emergency_on),
         "auto_arm": bool(load_prefs().get("autoarm", False)),
+        # logo status light: level / tier / distance / siren_active / cams_down
+        **_status_light(),
     })
 
 
@@ -6535,15 +6697,15 @@ def settings():
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px">
-        <div style="padding:12px;background:var(--panel);border-radius:8px;border-left:3px solid #50c878">
+        <div style="padding:12px;background:var(--panel);border-radius:8px;border-left:3px solid var(--violet)">
           <div style="font-weight:600;margin-bottom:8px">Tier 1 - Far Distance</div>
           <div style="font-size:12px;color:var(--muted)">Snapshot<br>Notification</div>
         </div>
-        <div style="padding:12px;background:var(--panel);border-radius:8px;border-left:3px solid #5b8dff">
+        <div style="padding:12px;background:var(--panel);border-radius:8px;border-left:3px solid var(--violet)">
           <div style="font-weight:600;margin-bottom:8px">Tier 2 - Medium Distance</div>
           <div style="font-size:12px;color:var(--muted)">Snapshot<br>5-second video<br>Notification</div>
         </div>
-        <div style="padding:12px;background:var(--panel);border-radius:8px;border-left:3px solid #e5544e">
+        <div style="padding:12px;background:var(--panel);border-radius:8px;border-left:3px solid var(--red)">
           <div style="font-weight:600;margin-bottom:8px">Tier 3 - Close Distance</div>
           <div style="font-size:12px;color:var(--muted)">Snapshot<br>Video until exit<br>Siren<br>Alert (requires acknowledgment)</div>
         </div>

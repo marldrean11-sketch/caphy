@@ -526,7 +526,7 @@ class _AlertsTabState extends State<AlertsTab> {
           // since those live outside this widget). Fixed by using one
           // uniform border and drawing the tier accent as a separate
           // rectangle instead of a border side.
-          border: Border.all(color: const Color(0x22789AD2)),
+          border: Border.all(color: cLine),
         ),
         child: Material(
           color: Colors.transparent,

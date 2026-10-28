@@ -296,7 +296,7 @@ class _MeTabState extends State<MeTab> {
                               ? Store.baseUrl
                               : 'Not paired yet',
                           style: const TextStyle(
-                              color: cMuted, fontSize: 12.5, fontFamily: 'monospace')),
+                              color: cMuted, fontSize: 12.5, fontFamily: fontMono)),
                     ),
                   ]),
                   const SizedBox(height: 4),

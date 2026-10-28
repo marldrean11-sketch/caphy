@@ -4,6 +4,7 @@ import 'api.dart';
 import 'theme.dart';
 import 'widgets.dart';
 import 'alerts_tab.dart';
+import 'status_light.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -42,24 +43,50 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Future<void> _loadStats() async {
-    final s = await Api.stats();
-    if (mounted) setState(() => _stats = s);
+    // Api.state() feeds StatusLight (the logo colour app-wide); Home lives
+    // in the tab IndexedStack, so this 2 s poll keeps it fresh everywhere.
+    final results = await Future.wait([Api.stats(), Api.state()]);
+    if (mounted) setState(() => _stats = results[0] as List<dynamic>);
+  }
+
+  bool _busy = false;
+
+  Future<void> _setArmed(bool on) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final ok = await Api.setArmed(on);
+    await Api.state();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ok == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Couldn't reach CAPHY. Try again.")));
+    }
+  }
+
+  Future<void> _silence() async {
+    final ok = await Api.silenceSiren();
+    await Api.state();
+    if (!mounted || ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't silence the siren. Try again.")));
   }
 
   @override
   Widget build(BuildContext context) {
     final online = _stats.where((s) => s['online'] == true).length;
     final total = _stats.length;
-    int maxTier = 0;
-    for (final s in _stats) {
-      final t = (s['tier'] ?? 0) as int;
-      if (t > maxTier) maxTier = t;
-    }
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: cPanel,
-        title: const Text('CAPHY',
-            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2)),
+        backgroundColor: cBg,
+        titleSpacing: 16,
+        title: const Row(children: [
+          CaphyLogo(size: 24, animate: false),
+          SizedBox(width: 10),
+          Text('CAPHY',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: 3.5)),
+        ]),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
@@ -83,7 +110,10 @@ class _HomeTabState extends State<HomeTab> {
             // ---- big-picture status: current threat tier front and
             // center (it's the thing worth glancing at first), camera
             // online count right beside it for quick context.
-            _statusHero(maxTier),
+            ValueListenableBuilder<StatusLight>(
+              valueListenable: StatusLight.notifier,
+              builder: (_, st, _) => _statusHero(st),
+            ),
             const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -142,49 +172,64 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  /// Big status banner: current threat tier (or "All Clear") is the
-  /// dominant element - a security app's single most important glance -
-  /// with the camera online count as a smaller secondary line underneath,
-  /// instead of two equal-weight stat cards competing for attention.
-  Widget _statusHero(int maxTier) {
-    final clear = maxTier == 0;
-    final accent = clear ? cTeal : tierColor(maxTier);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cPanel2,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withValues(alpha: 0.4)),
-      ),
-      child: Row(children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
+  /// The status light, front and centre: the logo (its colour IS the
+  /// status), one plain sentence, the facts under it, then the one action
+  /// that matters right now - arm, hold to disarm, or hold to silence.
+  Widget _statusHero(StatusLight st) {
+    final color = levelColor(st.level);
+    Widget swap(String text, TextStyle style) => AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+                position: Tween(begin: const Offset(0, 0.25), end: Offset.zero)
+                    .animate(anim),
+                child: child),
           ),
-          child: Icon(clear ? Icons.shield_outlined : Icons.warning_amber,
-              color: accent, size: 26),
+          child: Text(text,
+              key: ValueKey(text), style: style, textAlign: TextAlign.center),
+        );
+    return Column(children: [
+      const SizedBox(height: 10),
+      const CaphyLogo(size: 124),
+      const SizedBox(height: 18),
+      swap(
+          st.label.toUpperCase(),
+          TextStyle(
+              color: color,
+              fontFamily: fontMono,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.6)),
+      const SizedBox(height: 6),
+      swap(st.sentence,
+          const TextStyle(
+              color: cText, fontSize: 21, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      swap(st.detail, const TextStyle(color: cMuted, fontSize: 13)),
+      const SizedBox(height: 20),
+      if (st.siren)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: HoldButton(
+              label: 'Hold to silence siren',
+              filled: true,
+              color: cRed,
+              onConfirmed: _silence),
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('CURRENT STATUS',
-                  style: const TextStyle(
-                      color: cMuted, fontSize: 10.5, letterSpacing: 1.2)),
-              const SizedBox(height: 4),
-              Text(clear ? 'All Clear' : 'Tier $maxTier Alert',
-                  style: TextStyle(
-                      color: accent, fontSize: 20, fontWeight: FontWeight.bold)),
-            ],
-          ),
+      if (st.level != Level.offline)
+        Opacity(
+          opacity: _busy ? 0.5 : 1,
+          child: st.armed
+              ? HoldButton(
+                  label: 'Hold to disarm', onConfirmed: () => _setArmed(false))
+              : HoldButton(
+                  label: 'Arm system',
+                  filled: true,
+                  holdRequired: false,
+                  onConfirmed: () => _setArmed(true)),
         ),
-      ]),
-    );
+    ]);
   }
 
   Widget _cameraRow(dynamic s) {
@@ -231,8 +276,8 @@ class _HomeTabState extends State<HomeTab> {
               MaterialPageRoute(builder: (_) => AlertDetailScreen(id: id))),
           child: Container(
             decoration: BoxDecoration(
-              color: cPanel2.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(16),
+              color: cPanel,
+              borderRadius: BorderRadius.circular(12),
               // A Border with different colors per side (accent left edge,
               // faint the rest) combined with borderRadius throws "A
               // borderRadius can only be given on borders with uniform
@@ -243,11 +288,11 @@ class _HomeTabState extends State<HomeTab> {
               // using one uniform, near-invisible border here and drawing
               // the tier-colored accent separately below as a plain
               // rectangle instead of a border side.
-              border: Border.all(color: const Color(0x22789AD2)),
+              border: Border.all(color: cLine),
             ),
             child: Row(children: [
               ClipRRect(
-                borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
                 child: Container(width: 3, height: 68, color: accent),
               ),
               Expanded(

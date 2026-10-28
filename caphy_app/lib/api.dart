@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+import 'status_light.dart';
 
 /// Small persistent store for the server URL, auth token and username.
 class Store {
@@ -1444,6 +1445,27 @@ class Api {
     return null;
   }
 
+  /// Hold-to-silence: stops the siren for the incident in progress without
+  /// disarming (detection, recording and the red status light carry on).
+  /// LAN first, then the cloud command queue - same shape as siren().
+  static Future<bool> silenceSiren() async {
+    if (lastLanOk) {
+      try {
+        final r = await http.post(_u('/api/siren/silence'), headers: _h)
+            .timeout(const Duration(seconds: 5));
+        if (r.statusCode == 200) return true;
+      } catch (_) {
+        // fall through to cloud
+      }
+    }
+    if (Store.lastDeviceId != null) {
+      final result =
+          await sendRemoteCommand(Store.lastDeviceId!, 'siren_silence');
+      return result != null && result['status'] == 'done';
+    }
+    return false;
+  }
+
   /// Toggle recording. Returns the full response:
   ///   {recording: bool, video_url?: string}  (video_url present when stopped)
   ///
@@ -1613,6 +1635,13 @@ class Api {
   /// device to check in the cloud OR that device hasn't heartbeated
   /// recently) - i.e. the laptop genuinely looks off/unreachable anywhere.
   static Future<Map<String, dynamic>?> state() async {
+    final st = await _state();
+    // every state poll, from any screen, also drives the logo's status light
+    StatusLight.update(st);
+    return st;
+  }
+
+  static Future<Map<String, dynamic>?> _state() async {
     if (Store.hasServerAddress) {
       try {
         // Short timeout: on mobile data the saved LAN address (192.168.x.x)
@@ -1672,6 +1701,13 @@ class Api {
         out['camera_on'] = st['camera_on'] != false;
         out['emergency'] = st['emergency'] == true;
         out['siren'] = st['siren'] == true;
+        // status light, computed on the laptop (server.py _status_light)
+        for (final k in const [
+          'level', 'tier', 'distance', 'siren_active', 'cams_down',
+          'camera', 'cameras'
+        ]) {
+          if (st.containsKey(k)) out[k] = st[k];
+        }
       }
       return out;
     } catch (_) {
