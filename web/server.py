@@ -3633,9 +3633,12 @@ def live():
           <button class="collapse" id="collapseBtn" onclick="toggleControls()">Hide &#9650;</button>
         </div>
         <div class="controls" id="controls">
-          <button class="ctrlbtn primary" id="armBtn" onclick="toggleArm()">
+          <!-- .hold + data-act="arm": statuslight.js arms on a click and only
+               disarms on a 1.2 s hold (was: one-click toggleArm(), which
+               disarmed on a single tap unlike the sidebar) -->
+          <button type="button" class="ctrlbtn primary hold" id="armBtn" data-act="arm"><span class="fill"></span>
             <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-            <span id="armLabel">Arm</span></button>
+            <span class="lbl" id="armLabel">Arm</span></button>
           <button class="ctrlbtn icon" onclick="snap()" title="Snapshot">
             <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </button>
@@ -3861,9 +3864,7 @@ def live():
         setPill(document.getElementById('sbSiren'), 'Siren',        ST.siren,        'On','Off');
         setPill(document.getElementById('sbEmg'),   'Emergency',    ST.emergency,    'Active','Off');
 
-        const armBtn=document.getElementById('armBtn');
-        document.getElementById('armLabel').textContent = ST.armed ? 'Disarm' : 'Arm';
-        armBtn.classList.toggle('active', ST.armed);
+        setArmBtn(ST.armed);
 
         document.getElementById('nvBtn').classList.toggle('active', ST.night_vision);
         document.getElementById('sirenBtn').textContent = ST.siren ? 'Stop Siren' : 'Trigger Siren';
@@ -3875,11 +3876,16 @@ def live():
       }catch(e){}
       finally{ _stateInFlight = false; }
     }
-    async function toggleArm(){
-      try{ await fetch('/api/arm',{method:'POST',headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({on: !ST.armed})}); }catch(e){}
-      refreshState();
+    // Arm/disarm itself is handled by statuslight.js (the button is a .hold).
+    // Its caphy:state event also updates the label right after an arm or
+    // disarm, instead of waiting up to 2 s for this page's own poll.
+    function setArmBtn(armed){
+      document.getElementById('armLabel').textContent = armed ? 'Hold to disarm' : 'Arm';
+      document.getElementById('armBtn').classList.toggle('active', !!armed);
     }
+    document.addEventListener('caphy:state', function(ev){
+      if (ev.detail.level !== 'offline') setArmBtn(ev.detail.armed);
+    });
     async function toggleSelectedCam(){
       const closeBtn = document.getElementById('camCloseBtn');
       const isCurrentlyClosed = closeBtn && closeBtn.classList.contains('active');

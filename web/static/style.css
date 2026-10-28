@@ -568,6 +568,11 @@ html[data-siren=true] .sirenbar{grid-template-rows:1fr}
 .hold.holding .fill{transform:scaleX(1);transition:transform 1.2s linear}
 .hold .lbl{position:relative}
 .hold>*{pointer-events:none}
+/* Live page Arm button is a .hold too. Its page styles already win on
+   padding/font; only drop the sidebar's 150px min-width, and lift the
+   icon above the fill like the label */
+.ctrlbtn.hold{min-width:0}
+.ctrlbtn.hold svg{position:relative}
 /* sidebar status line follows the status light */
 .sidefoot .st .lvl-txt{color:var(--c,var(--violet));transition:color .6s}
 @media (prefers-reduced-motion:reduce){

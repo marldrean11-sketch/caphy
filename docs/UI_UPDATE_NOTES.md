@@ -78,6 +78,20 @@ checks - no sideways scrolling allowed).
 - **Screenshots:** `docs/screenshots/04-toast-disarm-1440.png`,
   `docs/screenshots/04-toast-armed-390.png`
 
+## 5. Live page Arm button: hold to disarm (Oct 29)
+
+- **What:** the Live page's Arm button is now a `.hold` button handled by
+  `statuslight.js`, like the sidebar: one click arms, disarm needs the
+  1.2 s hold. Label reads "Hold to disarm" while armed. `toggleArm()` is
+  gone; a small `caphy:state` listener updates the label right away.
+- **Why:** it disarmed on a single tap, against the design rule. Now its
+  disarm also gets the Undo toast.
+- **Files:** `web/server.py` (`live()` markup + script),
+  `web/static/style.css` (`.ctrlbtn.hold`: drops the 150px min-width)
+- **Tested:** label/active state, one click arms (label updates in ~0.2 s),
+  0.4 s press does nothing, 1.3 s hold disarms, Undo re-arms, button the same
+  86 x 44 px as before, 390px no sideways scroll, no page errors.
+
 ---
 
 ## Noticed, not changed
@@ -91,6 +105,3 @@ checks - no sideways scrolling allowed).
   no camera list), leaving a plain black box. Same as before the cleanup.
 - Phone, drawer open: a toast sits over the drawer's arm button for its
   4 s (x closes it). The Nov 1 bottom tab bar replaces the drawer anyway.
-- The Live page's arm button (`toggleArm()` in `live()`) disarms with one
-  click, not the 1.2 s hold the design rules ask for. Its disarm gets the
-  toast but no Undo.
