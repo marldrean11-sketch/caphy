@@ -39,6 +39,18 @@ checks - no sideways scrolling allowed).
   ("Can't reach CAPHY") after the 3rd. No page errors.
 - **Screenshot:** `docs/screenshots/02-statuslight-offline.png`
 
+## 3. Motion preview approved (Oct 28)
+
+- **What:** `docs/motion_preview.html`, a standalone page (open it in
+  Chrome, no server) showing the Oct 30 motion ideas on a cut-down
+  Overview: 1 action toasts with Undo, 2 new-alert toast, 3 status light
+  (existing), 4 page transition, 5 count-up numbers, 6 loading skeletons.
+- **Why:** agree the look and timings once before wiring anything into
+  `web/static`. Marl approved all six as shown.
+- **Files:** `docs/motion_preview.html` (reference only - not loaded by the app)
+- **Tested:** 1440 / 768 / 390, every demo plus reduced motion, no page
+  errors, no sideways scroll.
+
 ---
 
 ## Noticed, not changed

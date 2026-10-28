@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" data-level="clear" data-armed="false">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAPHY - motion preview</title>
+<!--
+  CAPHY motion preview (Oct 30 plan) - for Marl's approval before any of it
+  goes into web/static. Standalone: open the file in Chrome, no server needed.
+  Uses the real tokens, logo and component rules copied from style.css so
+  what you approve here is what ships. Nothing here talks to the real app.
+  Rules kept: transform/opacity only, 200-600 ms, reduced motion respected,
+  loops paused while the tab is hidden, no gradients / frosted glass.
+-->
+<style>
+@font-face{font-family:"IBM Plex Sans";font-weight:400;font-display:swap;src:url(../web/static/fonts/IBMPlexSans-Regular.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:500;font-display:swap;src:url(../web/static/fonts/IBMPlexSans-Medium.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:600;font-display:swap;src:url(../web/static/fonts/IBMPlexSans-SemiBold.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-display:swap;src:url(../web/static/fonts/IBMPlexMono-Regular.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:600;font-display:swap;src:url(../web/static/fonts/IBMPlexMono-SemiBold.woff2) format("woff2")}
+
+/* ---- copied from style.css (tokens, status palettes, logo, components) ---- */
+:root{
+  --ink:#0B0A10; --s1:#121118; --s2:#18171F; --s3:#201E29; --bg2:#0E0D13;
+  --violet:#8B6FFF; --yellow:#F2C14E; --gray:#55525F; --red:#FF4D5E;
+  --line:#26242F; --line2:#33303D; --text:#ECEAF2; --muted:#8E8A9B; --dim:#625E6E;
+  --sans:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,ui-monospace,monospace;
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+[data-level=clear],[data-level=idle]{--c:var(--violet);--c1:#C9BCFF;--ci:#DCD2FF;--ct:rgba(139,111,255,.12)}
+[data-level=watch]  {--c:var(--yellow);--c1:#FFE7A8;--ci:#FFF2CC;--ct:rgba(242,193,78,.12)}
+[data-level=threat] {--c:var(--red);   --c1:#FFA2AB;--ci:#FFD6DA;--ct:rgba(255,77,94,.13)}
+[data-level=offline]{--c:var(--gray);  --c1:#7D7A88;--ci:#9C99A8;--ct:rgba(120,117,132,.12)}
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--sans)}
+body{background:var(--ink);color:var(--text);display:flex;min-height:100vh}
+button{font:inherit;color:inherit}
+.caphy-logo{display:block;overflow:visible}
+.caphy-logo .g1{stop-color:var(--c1);transition:stop-color .6s var(--ease)}
+.caphy-logo .g2{stop-color:var(--c);transition:stop-color .6s var(--ease)}
+.caphy-logo .iris{fill:var(--ci);transition:fill .6s var(--ease)}
+.caphy-logo .halo{fill:none;stroke:var(--c);stroke-width:3;opacity:0;transform-box:view-box;transform-origin:48px 48px;transform:scale(1.16);transition:opacity .4s,stroke .6s}
+html[data-armed=true] .caphy-logo .halo{opacity:.6}
+.caphy-logo .eye{transform-box:view-box;transform-origin:48px 46px;animation:caphy-blink 6s ease-in-out infinite}
+.caphy-logo .pupil{transform-box:view-box;transform-origin:48px 46px;animation:caphy-glance 6s ease-in-out infinite}
+html[data-level=offline] .caphy-logo .eye,html[data-level=idle] .caphy-logo .eye{animation:none;transform:scaleY(.06);transition:transform .5s var(--ease)}
+html[data-level=offline] .caphy-logo .pupil,html[data-level=idle] .caphy-logo .pupil{animation:none;opacity:0}
+@keyframes caphy-blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.05)}}
+@keyframes caphy-glance{0%,100%{transform:translate(0,-6px)}25%{transform:translate(7px,0)}50%{transform:translate(0,6px)}75%{transform:translate(-7px,0)}}
+
+.side{width:230px;background:var(--bg2);border-right:1px solid var(--line);padding:16px 0;position:fixed;height:100vh;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:11px;padding:4px 20px 18px}
+.brand .logo{width:38px;height:38px}
+.brand b{font-size:16px;font-weight:600;letter-spacing:.22em}
+.brand small{display:block;color:var(--dim);font:500 9.5px var(--mono);letter-spacing:.16em;margin-top:2px}
+.nav a{display:flex;align-items:center;gap:12px;padding:11px 22px;color:var(--muted);font-size:14px;border-left:3px solid transparent;cursor:pointer;text-decoration:none}
+.nav a:hover{color:var(--text)}
+.nav a.active{color:var(--text);border-left-color:var(--c);font-weight:500;transition:border-color .6s}
+.sidefoot{margin-top:auto;padding:14px 20px 4px;border-top:1px solid var(--line);font-size:12px}
+.sidefoot .lvl-txt{color:var(--c);font-weight:600;transition:color .6s}
+.main{flex:1;margin-left:230px;min-width:0;display:flex;flex-direction:column}
+.header{display:flex;align-items:center;gap:12px;padding:16px 30px;border-bottom:1px solid var(--line)}
+.header h1{font-size:21px;font-weight:600}
+.header .sub{color:var(--muted);font-size:12.5px}
+.content{padding:24px 30px 120px}
+.btn{background:var(--text);color:var(--ink);border:none;padding:8px 14px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer}
+.btn:hover{filter:brightness(.92)}
+.btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line2)}
+.btn.ghost:hover{color:var(--text);border-color:var(--text)}
+.hold{position:relative;overflow:hidden;border-radius:8px;padding:8px 16px;font:600 13px var(--sans);cursor:pointer;user-select:none;touch-action:none;min-width:150px}
+.hold .fill{position:absolute;inset:0;background:currentColor;opacity:.2;transform:scaleX(0);transform-origin:left;transition:transform .2s}
+.hold.holding .fill{transform:scaleX(1);transition:transform 1.2s linear}
+.hold .lbl{position:relative}
+.hold>*{pointer-events:none}
+.sidearm{width:100%;margin-top:12px;background:var(--text);color:var(--ink);border:1px solid var(--text)}
+.sidearm.armed{background:transparent;color:var(--text);border-color:var(--line2)}
+.hero{display:flex;gap:24px;align-items:center;padding:6px 0 22px}
+.hero .biglogo{width:96px;height:96px;flex-shrink:0}
+.hero .state{font:500 11.5px var(--mono);letter-spacing:.14em;color:var(--c);text-transform:uppercase;transition:color .6s;margin-bottom:6px}
+.hero .say{font-size:26px;font-weight:600;line-height:1.2}
+.hero .hsub{color:var(--muted);margin-top:6px;font-size:13.5px}
+.roll{animation:roll .45s var(--ease)}
+@keyframes roll{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;background:var(--s1)}
+.statrow div{padding:12px 16px}
+.statrow div+div{border-left:1px solid var(--line)}
+.statrow b{display:block;font:600 20px var(--mono);font-variant-numeric:tabular-nums}
+.statrow span{font-size:11.5px;color:var(--dim)}
+.panel{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:18px}
+.panel h2{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.alist{display:flex;flex-direction:column;gap:9px}
+.arow{display:flex;align-items:center;gap:12px;background:var(--s1);border:1px solid var(--line);border-left:4px solid var(--yellow);border-radius:10px;padding:10px 12px}
+.arow.t3{border-left-color:var(--red)}
+.arow .txt{flex:1;min-width:0}
+.arow .tt{font-size:12.5px;font-weight:600}
+.arow .ss{font-size:11.5px;color:var(--dim);margin-top:1px}
+.arow .tm{font:400 11px var(--mono);color:var(--dim);white-space:nowrap}
+
+/* ---- preview chrome (not part of the proposal) ---- */
+.demo{border:1px dashed var(--line2);border-radius:12px;padding:14px 16px;margin-bottom:24px;font-size:12.5px;color:var(--muted)}
+.demo .dh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.demo .dh b{color:var(--text);font-size:13px}
+.demo label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.d{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg2)}
+.d .n{font:600 11px var(--mono);color:var(--text);margin-bottom:4px}
+.d p{font-size:11.5px;line-height:1.45;margin-bottom:8px}
+.d .row{display:flex;gap:6px;flex-wrap:wrap}
+.d .btn{padding:6px 10px;font-size:12px}
+
+/* =====================================================================
+   PROPOSAL 1 + 2: toasts
+   One stack for everything (action confirmations and new alerts), bottom
+   right on desktop, bottom full-width on phones. Enter = rise 16px + fade
+   (260 ms), leave = fade + drop 8px (200 ms); the rest of the stack slides
+   into place with a FLIP transform instead of jumping. The countdown line
+   is a scaleX, so the whole thing is transform/opacity only. The timer
+   pauses on hover/focus so Undo can't vanish under the cursor.
+   ===================================================================== */
+.toasts{position:fixed;right:24px;bottom:24px;z-index:900;display:flex;flex-direction:column;gap:8px;width:340px;pointer-events:none}
+.toast{pointer-events:auto;position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;font-size:13px;
+  opacity:0;transform:translateY(16px);transition:opacity .26s var(--ease),transform .26s var(--ease)}
+.toast.in{opacity:1;transform:none}
+.toast.out{opacity:0;transform:translateY(8px);transition-duration:.2s}
+.toast .ic{width:18px;height:18px;flex-shrink:0;stroke:var(--text);fill:none;stroke-width:2}
+.toast .msg{flex:1;min-width:0}
+.toast .msg small{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
+.toast .msg .mono{font-family:var(--mono)}
+.toast .act{background:transparent;border:0;color:var(--text);font-weight:600;font-size:12.5px;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px;padding:2px 0}
+.toast .x{background:transparent;border:0;color:var(--dim);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.toast .x:hover{color:var(--text)}
+.toast .life{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--text);opacity:.35;transform-origin:left;transform:scaleX(1)}
+/* alerts carry their tier colour on the left edge, same as .arow */
+.toast.alert{border-left:4px solid var(--yellow)}
+.toast.alert.t3{border-left-color:var(--red)}
+.toast.alert .ic{stroke:var(--yellow)}
+.toast.alert.t3 .ic{stroke:var(--red)}
+
+/* PROPOSAL 2b: a new alert row slides into Recent Alerts (others FLIP down) */
+.arow.new{animation:rowin .36s var(--ease)}
+@keyframes rowin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+/* =====================================================================
+   PROPOSAL 4: page transitions (View Transitions API)
+   Only the page body moves; sidebar and header stay still. Old page fades
+   out in 160 ms, new one rises 8px and fades in over 280 ms. In the real
+   app this is the cross-page form: @view-transition{navigation:auto} plus
+   the same two rules, no JS. Browsers without it just navigate normally.
+   ===================================================================== */
+.page{view-transition-name:page}
+::view-transition-old(root),::view-transition-new(root){animation:none}
+::view-transition-old(page){animation:vtout .16s ease-in both}
+::view-transition-new(page){animation:vtin .28s var(--ease) both}
+@keyframes vtout{to{opacity:0}}
+@keyframes vtin{from{opacity:0;transform:translateY(8px)}}
+
+/* =====================================================================
+   PROPOSAL 6: loading skeletons
+   Flat blocks that breathe (opacity .45 <-> 1, 900 ms) instead of the
+   usual shimmer - a shimmer needs a gradient, which the flat-surface rule
+   rules out, and opacity is cheaper for the YOLO laptop. Real rows then
+   fade up one after another, 40 ms apart.
+   ===================================================================== */
+.skel{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-left:4px solid var(--line2);border-radius:10px;padding:12px}
+.skel i{display:block;height:10px;border-radius:4px;background:var(--s3);animation:breathe .9s ease-in-out infinite alternate}
+.skel i.a{width:46px;height:18px;border-radius:9px}
+.skel i.b{flex:1}
+.skel i.c{width:52px}
+@keyframes breathe{from{opacity:1}to{opacity:.45}}
+.arow.fadeup{animation:rowin .3s var(--ease) both}
+/* pause every loop (blink, glance, skeleton) while the tab is hidden */
+html.tab-hidden *{animation-play-state:paused!important}
+
+/* history page (just enough to transition to) */
+.htable{width:100%;border-collapse:collapse;font-size:12.5px}
+.htable th{text-align:left;color:var(--dim);font-weight:500;font-size:11px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.htable td{padding:10px;border-bottom:1px solid var(--line)}
+.htable td.mono{font-family:var(--mono);color:var(--muted)}
+
+/* reduced motion: same global rule as style.css; the preview toggle
+   applies it by class so you can check it without changing OS settings */
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}
+html.rm *,html.rm *::before,html.rm *::after{animation:none!important;transition-duration:.01ms!important}
+html.rm ::view-transition-group(*),html.rm ::view-transition-old(*),html.rm ::view-transition-new(*){animation:none!important}
+
+/* phone: drawer sidebar is out of scope here, so it's simply hidden */
+@media (max-width:800px){
+  .side{display:none}.main{margin-left:0}
+  .header,.content{padding-left:16px;padding-right:16px}
+  .hero{flex-direction:column;align-items:flex-start}
+  .statrow{grid-template-columns:repeat(2,1fr)}
+  .statrow div:nth-child(3){border-left:0}.statrow div:nth-child(n+3){border-top:1px solid var(--line)}
+  .toasts{left:12px;right:12px;bottom:12px;width:auto}
+}
+</style>
+</head>
+<body>
+
+<aside class="side">
+  <div class="brand">
+    <div class="logo"><svg class="caphy-logo" viewBox="0 0 96 96" width="100%" height="100%">
+      <defs><linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="g1"/><stop offset="1" class="g2"/></linearGradient>
+      <clipPath id="cc"><path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"/></clipPath>
+      <clipPath id="ce"><path d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z"/></clipPath></defs>
+      <path class="halo" d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"/>
+      <path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z" fill="url(#cg)"/>
+      <g clip-path="url(#cc)"><path class="eye" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0E0C15"/>
+        <g clip-path="url(#ce)"><g class="pupil"><circle class="iris" cx="48" cy="46" r="12"/><circle cx="52" cy="41" r="2.5" fill="#fff" opacity=".85"/></g></g></g>
+    </svg></div>
+    <div><b>CAPHY</b><small>HOME SECURITY</small></div>
+  </div>
+  <nav class="nav">
+    <a data-page="overview" class="active">Overview</a>
+    <a data-page="history">Alert History</a>
+  </nav>
+  <div class="sidefoot">
+    <span class="lvl-txt" id="lvlTxt">Clear</span>
+    <button type="button" class="hold sidearm" id="sideArmBtn"><span class="fill"></span><span class="lbl">Arm system</span></button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="header"><h1 id="pageTitle">Overview</h1><span class="sub">Motion preview - not connected to CAPHY</span></div>
+  <div class="content">
+
+    <div class="demo">
+      <div class="dh"><b>Motion preview for approval - reply with the numbers you approve / want changed</b>
+        <label><input type="checkbox" id="rmToggle"> Simulate reduced motion</label></div>
+      <div class="dgrid">
+        <div class="d"><div class="n">1 - Action toasts</div>
+          <p>Arm = one click, toast "Armed". Disarm = 1.2 s hold, toast "Disarmed" with <u>Undo</u> for 6 s (Undo re-arms - one click, like arming). Rise + fade 260 ms, leave 200 ms.</p>
+          <div class="row"><button class="btn" id="dArm">Arm</button><button type="button" class="hold btn ghost" id="dDisarm" style="min-width:0"><span class="fill"></span><span class="lbl">Hold to disarm</span></button></div></div>
+        <div class="d"><div class="n">2 - New-alert toast (any page)</div>
+          <p>From the existing SSE stream. Tier edge colour, "View" opens Alert History, row slides into Recent Alerts, "alerts today" ticks up. Tier 3 stays 10 s, Tier 1-2 6 s.</p>
+          <div class="row"><button class="btn" id="dT1">Tier 1 alert</button><button class="btn" id="dT3">Tier 3 alert</button><button class="btn ghost" id="dBurst">3 at once</button></div></div>
+        <div class="d"><div class="n">3 - Status light (already built)</div>
+          <p>For context only: logo colour 600 ms, hero text rolls in 450 ms. Shown so you can judge the toasts next to it.</p>
+          <div class="row"><button class="btn ghost" data-lvl="clear">Clear</button><button class="btn ghost" data-lvl="watch">Watch</button><button class="btn ghost" data-lvl="threat">Threat</button><button class="btn ghost" data-lvl="idle">Idle</button><button class="btn ghost" data-lvl="offline">Offline</button></div></div>
+        <div class="d"><div class="n">4 - Page transition</div>
+          <p>Only the page body moves (out 160 ms, in 280 ms + 8 px rise). Sidebar/header stay still. Click the sidebar links too.</p>
+          <div class="row"><button class="btn" id="dPage">Switch page</button></div></div>
+        <div class="d"><div class="n">5 - Count-up numbers</div>
+          <p>Stat row counts up once on page load (600 ms, ease-out). Later changes just tick. Mono, tabular digits so nothing jiggles.</p>
+          <div class="row"><button class="btn" id="dCount">Replay count-up</button></div></div>
+        <div class="d"><div class="n">6 - Loading skeletons</div>
+          <p>Flat blocks breathe (opacity, no shimmer gradient) while alerts load, then rows fade up 40 ms apart.</p>
+          <div class="row"><button class="btn" id="dSkel">Reload alerts</button></div></div>
+      </div>
+    </div>
+
+    <div class="page" id="page">
+      <section id="pgOverview">
+        <div class="hero">
+          <div class="biglogo"><svg class="caphy-logo" viewBox="0 0 96 96" width="100%" height="100%">
+            <defs><linearGradient id="cg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="g1"/><stop offset="1" class="g2"/></linearGradient>
+            <clipPath id="cc3"><path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"/></clipPath>
+            <clipPath id="ce3"><path d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z"/></clipPath></defs>
+            <path class="halo" d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"/>
+            <path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z" fill="url(#cg3)"/>
+            <g clip-path="url(#cc3)"><path class="eye" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0E0C15"/>
+              <g clip-path="url(#ce3)"><g class="pupil"><circle class="iris" cx="48" cy="46" r="12"/><circle cx="52" cy="41" r="2.5" fill="#fff" opacity=".85"/></g></g></g>
+          </svg></div>
+          <div id="heroTxt"><div class="state">Clear</div><div class="say">Front door is clear.</div><div class="hsub">1 of 1 camera watching</div></div>
+        </div>
+        <div class="statrow">
+          <div><b data-count="44" id="stToday">44</b><span>alerts today</span></div>
+          <div><b data-count="48" id="stTotal">48</b><span>alerts in total</span></div>
+          <div><b>1 / 1</b><span>cameras online</span></div>
+          <div><b data-count="0">0</b><span>waiting to sync</span></div>
+        </div>
+        <div class="panel"><h2>Recent Alerts</h2><div class="alist" id="alist"></div></div>
+      </section>
+      <section id="pgHistory" hidden>
+        <div class="panel"><h2>Alert History</h2>
+          <table class="htable"><thead><tr><th>Time</th><th>Tier</th><th>Distance</th><th>Camera</th></tr></thead>
+          <tbody><tr><td class="mono">16:32:58</td><td>Tier 3</td><td class="mono">2.7 m</td><td>Front door</td></tr>
+          <tr><td class="mono">16:32:53</td><td>Tier 3</td><td class="mono">2.7 m</td><td>Front door</td></tr>
+          <tr><td class="mono">16:20:11</td><td>Tier 1</td><td class="mono">8.1 m</td><td>Front door</td></tr>
+          <tr><td class="mono">15:58:40</td><td>Tier 2</td><td class="mono">3.9 m</td><td>Front door</td></tr></tbody></table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="srAlert" aria-live="assertive" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+
+<script>
+(function () {
+  const root = document.documentElement;
+  const HOLD_MS = 1200;
+  const ICON_OK = '<svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const ICON_PERSON = '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
+  let alerts = [
+    { tier: 3, d: "2.7", t: "16:32:58" }, { tier: 3, d: "2.7", t: "16:32:53" },
+    { tier: 1, d: "8.1", t: "16:20:11" }, { tier: 2, d: "3.9", t: "15:58:40" }
+  ];
+
+  function reduced() {
+    return root.classList.contains("rm") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  // FLIP: remember where things were, let the DOM change, then slide each
+  // element from its old spot to the new one with a transform only
+  function flip(els, change) {
+    const before = new Map(els.map(function (el) { return [el, el.getBoundingClientRect().top]; }));
+    change();
+    if (reduced()) return;
+    before.forEach(function (top, el) {
+      if (!el.isConnected) return;
+      const dy = top - el.getBoundingClientRect().top;
+      if (!dy) return;
+      el.style.transition = "none";
+      el.style.transform = "translateY(" + dy + "px)";
+      requestAnimationFrame(function () {
+        el.style.transition = "transform .28s var(--ease)";
+        el.style.transform = "";
+      });
+    });
+  }
+
+  // ---- 1 + 2: toasts ----
+  const stack = document.getElementById("toasts");
+  function toast(opts) {
+    const el = document.createElement("div");
+    el.className = "toast" + (opts.cls ? " " + opts.cls : "");
+    el.innerHTML = (opts.icon || ICON_OK) + '<div class="msg">' + opts.text + (opts.sub ? "<small>" + opts.sub + "</small>" : "") + "</div>" +
+      (opts.action ? '<button type="button" class="act">' + opts.action + "</button>" : "") +
+      '<button type="button" class="x" aria-label="Dismiss">&times;</button><span class="life"></span>';
+    const ms = opts.ms || 4000;
+    const life = el.querySelector(".life");
+    let left = ms, started = 0, timer = 0, anim = null, paused = true;
+
+    // hover and keyboard focus can overlap, so only the first pause / last
+    // resume counts - otherwise the countdown loses time twice
+    function run() {
+      if (!paused || el.matches(":hover") || el.contains(document.activeElement)) return;
+      paused = false;
+      started = performance.now();
+      timer = setTimeout(close, left);
+      if (!reduced()) anim = life.animate([{ transform: life.style.transform || "scaleX(" + left / ms + ")" }, { transform: "scaleX(0)" }], { duration: left, fill: "forwards" });
+    }
+    function pause() {
+      if (paused) return;
+      paused = true;
+      clearTimeout(timer);
+      left -= performance.now() - started;
+      if (anim) { life.style.transform = "scaleX(" + Math.max(left, 0) / ms + ")"; anim.cancel(); anim = null; }
+    }
+    function close() {
+      clearTimeout(timer);
+      if (el.classList.contains("out")) return;
+      el.classList.add("out");
+      setTimeout(function () {
+        flip([...stack.children].filter(function (t) { return t !== el; }), function () { el.remove(); });
+      }, reduced() ? 0 : 200);
+    }
+    el.querySelector(".x").onclick = close;
+    if (opts.action) el.querySelector(".act").onclick = function () { opts.onAction(); close(); };
+    el.addEventListener("mouseenter", pause);
+    el.addEventListener("mouseleave", run);
+    el.addEventListener("focusin", pause);
+    el.addEventListener("focusout", run);
+
+    // newest at the bottom; keep at most 3 on screen
+    flip([...stack.children], function () {
+      stack.appendChild(el);
+      while (stack.children.length > 3) stack.firstElementChild.remove();
+    });
+    requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.add("in"); }); });
+    run();
+  }
+
+  // ---- arm / hold-to-disarm (same feel as statuslight.js) ----
+  const armBtn = document.getElementById("sideArmBtn");
+  function setArmed(on, viaUndo) {
+    root.dataset.armed = on ? "true" : "false";
+    armBtn.classList.toggle("armed", on);
+    armBtn.querySelector(".lbl").textContent = on ? "Hold to disarm" : "Arm system";
+    describe();
+    if (on) toast({ text: viaUndo ? "Armed again." : "Armed.", sub: "CAPHY will sound the siren on a Tier 3." });
+    else toast({ text: "Disarmed.", sub: "Alerts still log, no siren.", action: "Undo", ms: 6000, onAction: function () { setArmed(true, true); } });
+  }
+  function arm() { if (root.dataset.armed !== "true") setArmed(true); }
+  function disarm() { if (root.dataset.armed === "true") setArmed(false); }
+
+  document.addEventListener("pointerdown", function (e) {
+    const btn = e.target.closest(".hold");
+    if (!btn) return;
+    if (btn === armBtn && root.dataset.armed !== "true") { arm(); return; }
+    btn.classList.add("holding");
+    btn._holdTimer = setTimeout(function () { btn.classList.remove("holding"); disarm(); }, HOLD_MS);
+  });
+  function cancel() {
+    document.querySelectorAll(".hold.holding").forEach(function (b) { b.classList.remove("holding"); clearTimeout(b._holdTimer); });
+  }
+  ["pointerup", "pointercancel", "pointerleave"].forEach(function (ev) { document.addEventListener(ev, cancel, true); });
+  document.getElementById("dArm").onclick = arm;
+
+  // ---- 2: new alerts ----
+  const alist = document.getElementById("alist");
+  function rowHtml(a) {
+    return '<div class="txt"><div class="tt">Tier ' + a.tier + '</div><div class="ss">Person detected · ' + a.d + ' m away</div></div><span class="tm">' + a.t + "</span>";
+  }
+  function renderRows(stagger) {
+    alist.innerHTML = "";
+    alerts.slice(0, 5).forEach(function (a, i) {
+      const r = document.createElement("div");
+      r.className = "arow" + (a.tier === 3 ? " t3" : "") + (stagger ? " fadeup" : "");
+      if (stagger) r.style.animationDelay = (i * 40) + "ms";
+      r.innerHTML = rowHtml(a);
+      alist.appendChild(r);
+    });
+  }
+  function newAlert(tier) {
+    const now = new Date();
+    const a = { tier: tier, d: tier === 3 ? (2 + Math.random()).toFixed(1) : (5 + Math.random() * 4).toFixed(1),
+                t: now.toTimeString().slice(0, 8) };
+    alerts.unshift(a);
+    const r = document.createElement("div");
+    r.className = "arow new" + (tier === 3 ? " t3" : "");
+    r.innerHTML = rowHtml(a);
+    flip([...alist.children], function () {
+      alist.prepend(r);
+      while (alist.children.length > 5) alist.lastElementChild.remove();
+    });
+    const today = document.getElementById("stToday"), total = document.getElementById("stTotal");
+    countTo(today, +today.dataset.count + 1, 300);
+    countTo(total, +total.dataset.count + 1, 300);
+    toast({ cls: "alert" + (tier === 3 ? " t3" : ""), icon: ICON_PERSON, ms: tier === 3 ? 10000 : 6000,
+            text: "Tier " + tier + " · person at the front door", sub: '<span class="mono">' + a.d + " m away · " + a.t + "</span>",
+            action: "View", onAction: function () { go("history"); } });
+    if (tier === 3) document.getElementById("srAlert").textContent = "Tier 3 alert: person " + a.d + " metres from the front door";
+  }
+  document.getElementById("dT1").onclick = function () { newAlert(1); };
+  document.getElementById("dT3").onclick = function () { newAlert(3); };
+  document.getElementById("dBurst").onclick = function () {
+    newAlert(1); setTimeout(function () { newAlert(2); }, 150); setTimeout(function () { newAlert(3); }, 300);
+  };
+
+  // ---- 3: status light (as built today) ----
+  const SAY = {
+    clear:   ["Clear", "Front door is clear.", "1 of 1 camera watching"],
+    watch:   ["Watching", "Someone is near the front door.", "Tier 1 · 6.2 m away"],
+    threat:  ["Threat", "Person at the front door.", "Tier 3 · 2.4 m away"],
+    idle:    ["Cameras off", "Cameras are off.", "CAPHY isn't watching anything right now."],
+    offline: ["Offline", "Can't reach the CAPHY server.", "The page will reconnect on its own once it is back."]
+  };
+  function describe() {
+    const lvl = root.dataset.level;
+    const s = SAY[lvl];
+    document.getElementById("lvlTxt").textContent = s[0] + (lvl === "clear" && root.dataset.armed === "true" ? " · armed" : "");
+  }
+  document.querySelectorAll("[data-lvl]").forEach(function (b) {
+    b.onclick = function () {
+      const lvl = b.dataset.lvl;
+      if (root.dataset.level === lvl) return;
+      root.dataset.level = lvl;
+      const s = SAY[lvl], h = document.getElementById("heroTxt");
+      h.innerHTML = '<div class="state">' + s[0] + '</div><div class="say">' + s[1] + '</div><div class="hsub">' + s[2] + "</div>";
+      h.classList.remove("roll"); void h.offsetWidth; h.classList.add("roll");
+      describe();
+    };
+  });
+
+  // ---- 4: page transition ----
+  let current = "overview";
+  function go(page) {
+    if (page === current) return;
+    function swap() {
+      current = page;
+      document.getElementById("pgOverview").hidden = page !== "overview";
+      document.getElementById("pgHistory").hidden = page !== "history";
+      document.getElementById("pageTitle").textContent = page === "overview" ? "Overview" : "Alert History";
+      document.querySelectorAll(".nav a").forEach(function (a) { a.classList.toggle("active", a.dataset.page === page); });
+    }
+    if (document.startViewTransition && !reduced()) document.startViewTransition(swap);
+    else swap();
+  }
+  document.querySelectorAll(".nav a").forEach(function (a) { a.onclick = function () { go(a.dataset.page); }; });
+  document.getElementById("dPage").onclick = function () { go(current === "overview" ? "history" : "overview"); };
+
+  // ---- 5: count-up ----
+  function countTo(el, to, ms) {
+    const from = +(el.textContent) || 0;
+    el.dataset.count = to;
+    if (reduced() || from === to) { el.textContent = to; return; }
+    const t0 = performance.now();
+    function step(now) {
+      const p = Math.min((now - t0) / ms, 1);
+      el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+      if (p < 1 && el.dataset.count == to) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function countUpAll() {
+    document.querySelectorAll("[data-count]").forEach(function (el) { const to = +el.dataset.count; el.textContent = 0; countTo(el, to, 600); });
+  }
+  document.getElementById("dCount").onclick = function () { go("overview"); countUpAll(); };
+
+  // ---- 6: skeletons ----
+  function loadAlerts() {
+    alist.innerHTML = '<div class="skel"><i class="a"></i><i class="b"></i><i class="c"></i></div>'.repeat(4);
+    setTimeout(function () { renderRows(true); }, 1400);
+  }
+  document.getElementById("dSkel").onclick = function () { go("overview"); loadAlerts(); };
+
+  // ---- preview helpers ----
+  document.getElementById("rmToggle").onchange = function (e) { root.classList.toggle("rm", e.target.checked); };
+  document.addEventListener("visibilitychange", function () { root.classList.toggle("tab-hidden", document.hidden); });
+
+  // first load shows what a real page load would: skeleton, then rows; numbers count up
+  loadAlerts();
+  countUpAll();
+})();
+</script>
+</body>
+</html>
