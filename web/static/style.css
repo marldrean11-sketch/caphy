@@ -672,6 +672,27 @@ html[data-siren=true] .hero .caphy-logo{animation:caphy-pulse 1s ease-in-out inf
 .actempty{color:var(--dim);font-size:13px;padding:8px 0}
 .detbox .dd{color:var(--text)}
 
+/* ---------------- toasts (static/toast.js) ----------------
+   Approved in docs/motion_preview.html. Bottom right, newest at the bottom,
+   max 3. Enter = rise 16px + fade (260 ms), leave = fade + drop 8px (200 ms).
+   Flat ink surface like every other panel; the white check / underlined
+   action keep it neutral - status colours stay reserved for status.
+   z-index above the phone drawer (1200) so a confirmation is never hidden. */
+.ctoasts{position:fixed;right:24px;bottom:24px;z-index:1300;display:flex;flex-direction:column;gap:8px;width:340px;pointer-events:none}
+.ctoast{pointer-events:auto;position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--line2);
+  border-radius:10px;padding:12px 14px;font-size:13px;color:var(--text);
+  opacity:0;transform:translateY(16px);transition:opacity .26s var(--ease),transform .26s var(--ease)}
+.ctoast.in{opacity:1;transform:none}
+.ctoast.out{opacity:0;transform:translateY(8px);transition-duration:.2s}
+.ctoast .ic{width:18px;height:18px;flex-shrink:0;stroke:var(--text);fill:none;stroke-width:2}
+.ctoast .msg{flex:1;min-width:0;font-weight:600}
+.ctoast .msg small{display:block;color:var(--muted);font-size:11.5px;font-weight:400;margin-top:1px}
+.ctoast .act{background:transparent;border:0;color:var(--text);font:600 12.5px var(--sans);cursor:pointer;padding:2px 0;
+  text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
+.ctoast .x{background:transparent;border:0;color:var(--dim);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.ctoast .x:hover{color:var(--text)}
+.ctoast .life{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--text);opacity:.35;transform-origin:left}
+
 /* ===================== PHONE / NARROW WIDTH =====================
    Below 900px the fixed 230px sidebar becomes a slide-in drawer opened
    from the header's menu button (base.html), and multi-column layouts
@@ -719,6 +740,7 @@ html[data-siren=true] .hero .caphy-logo{animation:caphy-pulse 1s ease-in-out inf
   .phactions{flex-wrap:wrap;gap:8px}
   .hero .say{font-size:22px}
   .meter .band{padding:0 6px;font-size:9.5px}
+  .ctoasts{left:12px;right:12px;bottom:12px;width:auto}
 }
 @media (max-width:480px){
   .actrow{grid-template-columns:40px 28px 1fr;gap:10px}

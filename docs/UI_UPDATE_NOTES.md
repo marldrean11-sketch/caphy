@@ -51,6 +51,33 @@ checks - no sideways scrolling allowed).
 - **Tested:** 1440 / 768 / 390, every demo plus reduced motion, no page
   errors, no sideways scroll.
 
+## 4. Arm / disarm toasts (Oct 29)
+
+- **What:** new shared `web/static/toast.js` (`window.caphyToast`) + a
+  toast block in `style.css`. `statuslight.js` toasts whenever the armed
+  state flips in `/api/state`: "Armed." / "Disarmed.", each with one line on
+  what that means. The tab that did the 1.2 s disarm hold also gets **Undo**
+  (6 s, re-arms - one click, like arming).
+- **Why:** arming from the sidebar gave no feedback on any page. Driven by
+  the state, not the click, so arming from the phone, voice or the Live page
+  button shows up on every open page too. Wording follows the real rules in
+  `server.py` (Tier 3 sirens even when disarmed; arming adds Tier 2 siren and
+  pushes for every tier).
+- **Files:** `web/static/toast.js` (new), `web/static/style.css`,
+  `web/static/statuslight.js`, `web/templates/base.html` (loads it),
+  `web/server.py` (`_css_version()` hashes toast.js too, so Ctrl+F5 isn't
+  needed after it changes). Preview wording corrected to match.
+- **Kept apart:** the Live page's own `toast()` / `#webtoast` is untouched;
+  the new one is named `caphyToast` / `.ctoast` so they can't clash.
+- **Tested (browser, scripted):** no toast on page load; arm toast; 0.4 s
+  press does nothing; hold -> Disarmed + Undo; hovering pauses the countdown;
+  Undo re-arms; a second tab gets the toast without Undo; a disarm from
+  outside the page (API call, like the phone) toasts without Undo; server
+  down and back up gives no false toast; 390px + reduced motion shows the
+  toast instantly, inside the screen, no sideways scroll. No page errors.
+- **Screenshots:** `docs/screenshots/04-toast-disarm-1440.png`,
+  `docs/screenshots/04-toast-armed-390.png`
+
 ---
 
 ## Noticed, not changed
@@ -62,3 +89,8 @@ checks - no sideways scrolling allowed).
   can't be reached, so "server down" and "no internet" show the same bar.
 - In the offline state the Camera-off overlay disappears (offline state has
   no camera list), leaving a plain black box. Same as before the cleanup.
+- Phone, drawer open: a toast sits over the drawer's arm button for its
+  4 s (x closes it). The Nov 1 bottom tab bar replaces the drawer anyway.
+- The Live page's arm button (`toggleArm()` in `live()`) disarms with one
+  click, not the 1.2 s hold the design rules ask for. Its disarm gets the
+  toast but no Undo.

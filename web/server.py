@@ -2317,10 +2317,11 @@ NAV = [("/", "Overview"), ("/live", "Live Camera"),
 # even after a normal refresh. Appending ?v=<hash> to the <link> URL forces
 # the browser to fetch a fresh copy any time this file's contents change.
 def _css_version():
-    # covers statuslight.js too, since base.html versions it with the same hash
+    # covers statuslight.js and toast.js too, since base.html versions them
+    # with the same hash
     try:
         h = hashlib.md5()
-        for name in ("style.css", "statuslight.js"):
+        for name in ("style.css", "statuslight.js", "toast.js"):
             with open(os.path.join(app.static_folder, name), "rb") as f:
                 h.update(f.read())
         return h.hexdigest()[:10]

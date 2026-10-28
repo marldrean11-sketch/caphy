@@ -17,6 +17,12 @@
   const root = document.documentElement;
   let fails = 0;
   const HOLD_MS = 1200;
+  // armed state from the last real (non-offline) poll; null until the first
+  // one, so loading a page never toasts
+  let lastArmed = null;
+  // when THIS tab finished a disarm hold - only that tab gets Undo
+  let disarmedHereAt = 0;
+  const UNDO_WINDOW_MS = 10000;
 
   // "1 of 2 cameras watching · 1 off" - same wording as cams_text() in
   // server.py, so the sidebar, header and Overview never disagree
@@ -32,6 +38,13 @@
     root.dataset.level = st.level || "clear";
     root.dataset.armed = st.armed ? "true" : "false";
     root.dataset.siren = st.siren_active ? "true" : "false";
+    // offline has no armed field (it reads as false), so it must not count
+    // as a change - otherwise reconnecting would toast "Armed." out of nowhere
+    if (st.level !== "offline") {
+      const armedNow = !!st.armed;
+      if (lastArmed !== null && armedNow !== lastArmed) announceArm(armedNow);
+      lastArmed = armedNow;
+    }
 
     const txt = document.getElementById("lvlTxt");
     if (txt) txt.textContent = describe(st);
@@ -63,6 +76,26 @@
       arm.querySelector(".lbl").textContent = st.armed ? "Hold to disarm" : "Arm system";
     }
     document.dispatchEvent(new CustomEvent("caphy:state", { detail: st }));
+  }
+
+  // Toast on ANY arm/disarm - sidebar, Live page button, phone app or voice -
+  // because every open page sees the flip in /api/state. Wording matches the
+  // siren / push rules in server.py (Tier 3 sirens even when disarmed;
+  // arming adds Tier 2 siren and pushes for every tier).
+  function announceArm(armed) {
+    if (!window.caphyToast) return;
+    if (armed) {
+      window.caphyToast({ text: "Armed.", sub: "Siren from Tier 2, phone alerts for every tier." });
+      return;
+    }
+    const mine = Date.now() - disarmedHereAt < UNDO_WINDOW_MS;
+    disarmedHereAt = 0;
+    window.caphyToast({
+      text: "Disarmed.", sub: "Siren and phone alerts on Tier 3 only.",
+      // Undo = arm again, which is one click anyway, so it's never risky
+      action: mine ? "Undo" : null, ms: mine ? 6000 : 4000,
+      onAction: function () { post("/api/arm", { on: true }); }
+    });
   }
 
   function describe(st) {
@@ -104,7 +137,7 @@
   }
 
   const actions = {
-    disarm: function () { return post("/api/arm", { on: false }); },
+    disarm: function () { disarmedHereAt = Date.now(); return post("/api/arm", { on: false }); },
     silence: function () { return post("/api/siren/silence"); }
   };
 

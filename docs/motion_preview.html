@@ -379,8 +379,9 @@ html.rm ::view-transition-group(*),html.rm ::view-transition-old(*),html.rm ::vi
     armBtn.classList.toggle("armed", on);
     armBtn.querySelector(".lbl").textContent = on ? "Hold to disarm" : "Arm system";
     describe();
-    if (on) toast({ text: viaUndo ? "Armed again." : "Armed.", sub: "CAPHY will sound the siren on a Tier 3." });
-    else toast({ text: "Disarmed.", sub: "Alerts still log, no siren.", action: "Undo", ms: 6000, onAction: function () { setArmed(true, true); } });
+    // wording matches the siren / push rules in web/server.py
+    if (on) toast({ text: "Armed.", sub: "Siren from Tier 2, phone alerts for every tier." });
+    else toast({ text: "Disarmed.", sub: "Siren and phone alerts on Tier 3 only.", action: "Undo", ms: 6000, onAction: function () { setArmed(true, true); } });
   }
   function arm() { if (root.dataset.armed !== "true") setArmed(true); }
   function disarm() { if (root.dataset.armed === "true") setArmed(false); }
