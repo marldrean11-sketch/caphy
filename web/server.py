@@ -6504,6 +6504,35 @@ def history():
         .snapnav.prev{{left:6px}} .snapnav.next{{right:6px}}
         .snaphint{{font-size:11.5px;padding:10px}}
       }}
+
+      /* Phones: each alert row becomes a card. Was: the 6-column table
+         scrolled sideways inside its panel, so Time / View / Delete sat
+         off-screen at 390px. Same <tr>/<td> markup re-laid out as a grid,
+         so select mode, row taps, delete, loadHistory swaps and the
+         snapshot viewer all keep working untouched. Camera / distance /
+         time indent 56px to line up under the event text (44px thumb +
+         12px gap in .evrow). */
+      @media (max-width:600px){{
+        #histTable,#histTable tbody{{display:block}}
+        #histTable tr:has(th){{display:none}}
+        #histTable td{{padding:0;border:0;min-width:0}}
+        #histTable tr:not([data-id]):not(:has(th)),#histTable tr:not([data-id])>td{{display:block}}
+        #histTable tr:not([data-id])>td{{padding:22px 14px}}
+        #histTable tr[data-id]{{display:grid;grid-template-columns:auto fit-content(60%) minmax(0,1fr) auto;
+          grid-template-areas:"sel ev ev del" "sel cam dist ." "sel time time view";
+          align-items:center;row-gap:4px;padding:12px 14px;border-top:1px solid var(--line)}}
+        #histTable tr:has(th)+tr{{border-top:0}}
+        #histTable tr[data-id]>td:nth-child(1){{grid-area:sel;padding-right:12px !important}}
+        #histTable tr[data-id]>td:nth-child(2){{grid-area:ev;margin-bottom:2px}}
+        #histTable tr[data-id]>td:nth-child(3){{grid-area:cam;padding-left:56px;font-size:12.5px;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+        #histTable tr[data-id]>td:nth-child(4){{grid-area:dist;font:12px var(--mono);white-space:nowrap;color:var(--muted)}}
+        #histTable tr[data-id]>td:nth-child(4)::before{{content:"\\00b7";padding:0 6px;color:var(--dim)}}
+        #histTable tr[data-id]>td:nth-child(5){{grid-area:time;padding-left:56px;font:12px var(--mono)}}
+        #histTable tr[data-id]>td:nth-child(6){{grid-area:view;justify-self:end}}
+        #histTable tr[data-id]>td:nth-child(7){{grid-area:del;justify-self:end;align-self:start}}
+        #histTable .viewbtn{{min-height:36px}}
+      }}
     </style>"""
     return page("Alert History", "/history", body,
                 subtitle=f'<div>{total:,} Confirmed Alerts</div><div>View and manage previous alerts</div>')

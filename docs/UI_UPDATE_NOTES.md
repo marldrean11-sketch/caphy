@@ -314,6 +314,32 @@ checks - no sideways scrolling allowed).
 
 ---
 
+## 15. Alert History as cards on phones (Nov 1 item, done Oct 29)
+
+- **What:** at 600px and below, each alert row is a card. Line 1 is the
+  thumbnail, event name and sub line, with Delete on the right. Line 2 is
+  camera · distance. Line 3 is the time, with View on the right. The
+  column header row is hidden. In Select mode the checkbox sits on the
+  left and tapping anywhere on a card selects it, as before.
+- **Before:** the 6-column table scrolled sideways inside its panel, so
+  Time, View and Delete sat off-screen at 390px.
+- **How:** CSS only (a grid on the existing `<tr>`/`<td>`). The markup and
+  JS are unchanged, so select mode, delete, filter/page swaps and the
+  snapshot viewer work as they did. 601px and up is the table as before.
+- **Files:** `web/server.py` (`history()` page `<style>`, one media block)
+- **Tested:** cards at 390/600, the table at 601/768/1440, and no sideways
+  scroll at any of them. View/Delete stay on-screen on every card. Camera
+  and time line up under the event text. Select mode: the checkbox shows,
+  a tap selects, and everything still fits. A tier filter swap keeps the
+  cards. View opens the snapshot viewer. The empty state is full width.
+  No page errors. 12/12. Delete wasn't run against real alerts; it only
+  removes DOM rows, which the layout doesn't depend on.
+- **Screenshots:** `docs/screenshots/15-history-cards-390.png`,
+  `docs/screenshots/15-history-cards-select-390.png` (cropped above the
+  first real snapshot thumbnail)
+
+---
+
 ## Noticed, not changed
 
 - When the server is down, the top banner says "You're offline - CAPHY is
