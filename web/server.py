@@ -2347,16 +2347,23 @@ def cams_text(light):
     return txt + (f" \u00b7 {off} off" if off else "")
 
 
+def _unread_count():
+    """Alerts not yet dismissed (the bell badge), or None if the DB can't be read."""
+    try:
+        db = Database(config.DB_PATH)
+        try:
+            return db.count_alerts(include_dismissed=False)
+        finally:
+            db.close()
+    except Exception:
+        return None
+
+
 def page(title, href, body, subtitle=""):
     light = _status_light()
     online = light["cams_online"]
     cam = cams_text(light)
-    try:
-        db = Database(config.DB_PATH)
-        unread = db.count_alerts(include_dismissed=False)
-        db.close()
-    except Exception:
-        unread = 0
+    unread = _unread_count() or 0
     # Prefer the display name (set at signup, via Google, or changed later
     # in Settings > Users) over the raw email - falls back to email if no
     # name was ever set, so this never shows a blank name in the header.
@@ -5309,6 +5316,9 @@ def api_state():
         "siren": bool(_siren_manual),
         "emergency": bool(_emergency_on),
         "auto_arm": bool(load_prefs().get("autoarm", False)),
+        # the bell / Alerts-tab badge, so it's live on every page (was: only
+        # counted when the page was drawn, so it never went up or down)
+        "unread": _unread_count(),
         # logo status light: level / tier / distance / siren_active / cams_down
         **_status_light(),
     })

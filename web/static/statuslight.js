@@ -89,7 +89,22 @@
       tabArm.querySelector(".lbl").textContent = st.armed ? "Armed" : "Arm";
       tabArm.setAttribute("aria-label", st.armed ? "Armed. Hold to disarm" : "Arm system");
     }
+    if (typeof st.unread === "number") setBadges(st.unread);
     document.dispatchEvent(new CustomEvent("caphy:state", { detail: st }));
+  }
+
+  // header bell + phone Alerts tab: same markup base.html draws (a .badge
+  // before the icon), added / updated / removed as the count changes
+  function setBadges(n) {
+    const bell = document.querySelector('.header a.iconbtn[href="/history"]');
+    if (bell) bell.setAttribute("aria-label", "Alert History" + (n ? ", " + n + " unread" : ""));
+    [bell, document.querySelector('.tabbar a[href="/history"]')].forEach(function (a) {
+      if (!a) return;
+      let b = a.querySelector(".badge");
+      if (!n) { if (b) b.remove(); return; }
+      if (!b) { b = document.createElement("span"); b.className = "badge"; a.insertBefore(b, a.firstChild); }
+      b.textContent = n < 100 ? n : "99+";
+    });
   }
 
   // Toast on ANY arm/disarm - sidebar, Live page button, phone app or voice -

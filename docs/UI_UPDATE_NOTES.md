@@ -574,14 +574,33 @@ focus landing on something hidden).
 
 ---
 
+## 23. Fix: the bell / Alerts-tab count is live (Oct 29)
+
+- **What:** `/api/state` now carries `unread` (the same
+  `count_alerts(include_dismissed=False)` the page header used), and
+  statuslight.js updates the header bell and the phone Alerts tab badge
+  on every poll: it adds, changes or removes the badge, shows "99+" from
+  100, and keeps the bell's `aria-label` in step ("Alert History, 7
+  unread").
+- **Why:** the badge was only counted when the page was drawn, so a new
+  alert, or a delete from the phone, never changed it until you
+  navigated.
+- **Files:** `web/server.py` (`_unread_count()`, used by `page()` and
+  `/api/state`), `web/static/statuslight.js` (`setBadges`)
+- **Tested:** the real count matches the badge (48). With stand-in counts
+  49 / 0 / 7 / 150 at 1440 and 390, the visible badge reads 49 / none /
+  7 / 99+ and the aria-label follows. It goes back to the real count
+  after. The phone app ignores the extra field.
+- **Screenshot:** `docs/screenshots/23-live-badge.png`
+
+---
+
 ## Noticed, not changed
 
 - In the offline state the Camera-off overlay disappears (offline state has
   no camera list), leaving a plain black box. Same as before the cleanup.
 - Phone, drawer open: a toast sits over the drawer's arm button for its
   4 s (x closes it). The Nov 1 bottom tab bar replaces the drawer anyway.
-- The header bell's unread count doesn't go up on a new alert (server-drawn
-  in `page()`); only Overview's two counts are live.
 - In the 340px alert toast the "camera · distance · time" line wraps to two
   lines when View is shown. Readable; cutting it would hide the time.
 - Overview's meter always shows the config defaults (4.5 / 2.5 m, fixed
