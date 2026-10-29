@@ -24,7 +24,11 @@
   <link rel="expect" href="#pageEnd" blocking="render">
   <style>
     @view-transition{navigation:auto}
-    .content{view-transition-name:page}
+    /* only DURING a transition: a view-transition-name makes .content its
+       own stacking context, which trapped full-screen overlays inside it
+       (snapshot viewer, Live fullscreen, password overlay) under the
+       header's z-index:500 - the header icons covered the viewer's buttons */
+    html:active-view-transition .content{view-transition-name:page}
     ::view-transition-group(root),::view-transition-old(root),::view-transition-new(root){animation:none}
     ::view-transition-group(page){animation:none}
     ::view-transition-old(page){animation:vtout .16s ease-in both}

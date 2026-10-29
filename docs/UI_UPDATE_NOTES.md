@@ -225,6 +225,21 @@ checks - no sideways scrolling allowed).
 - **Screenshots:** `docs/screenshots/10-tier-meter-1440.png`,
   `docs/screenshots/10-tier-meter-390.png`
 
+## 11. Fix: full-screen overlays were under the header (Oct 29)
+
+- **What:** `.content` now only gets its `view-transition-name` while a
+  transition is running (`html:active-view-transition .content{...}`).
+- **Why:** change 7 gave `.content` the name permanently, and a
+  view-transition-name makes the element its own stacking context. Every
+  full-screen overlay that lives inside a page (Alert History's snapshot
+  viewer, Live fullscreen, the Settings password overlay) was then trapped
+  under the header's `z-index:500` - the header icons sat on top of the
+  snapshot viewer's zoom/Exit buttons. Found by the viewer test in 12.
+- **Files:** `web/templates/base.html`
+- **Tested:** page-transition suite again on plain Chrome 156 (13/13, old
+  and new page still both animate); `.content` has no name at rest; the
+  viewer's zoom button is the top element at its own position.
+
 ---
 
 ## Noticed, not changed
