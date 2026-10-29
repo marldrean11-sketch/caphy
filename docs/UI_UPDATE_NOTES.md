@@ -537,6 +537,19 @@ focus landing on something hidden).
 
 ---
 
+## 21. Fix: Settings descriptions at body size (Oct 29)
+
+- **What:** `.fdesc` (small grey description) is now styled everywhere,
+  not only inside `.field`. The toggle rows on Detection ("Brightens dark
+  camera images automatically.") and two lines on the Users tab were
+  rendering at body size.
+- **Files:** `web/static/style.css`
+- **Tested:** the toggle-row descriptions are 12px `--muted`; the field
+  descriptions are unchanged (12px, 10px gap below).
+- **Screenshot:** `docs/screenshots/21-settings-toggle-desc.png`
+
+---
+
 ## Noticed, not changed
 
 - When the server is down, the top banner says "You're offline - CAPHY is
@@ -559,8 +572,6 @@ focus landing on something hidden).
   clip, Tier 3 · siren"; Settings' cards say "Record event only / Take a
   snapshot and notify / Record video, sound siren, and notify". Which is
   right is Kem's call (detection rules).
-- Settings: the toggle descriptions ("Brightens dark camera images
-  automatically.") render at body size, not the small grey `.fdesc` size.
 - Contrast: `--dim` (#625E6E) is 2.8-3.1:1 on the ink surfaces, under the
   4.5:1 needed for small text (`--muted` is 5.3-5.9:1, fine). It's used in
   28 places (timestamps, hints, empty states). #827E8E would reach 4.5:1

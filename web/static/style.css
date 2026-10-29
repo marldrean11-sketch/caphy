@@ -488,7 +488,10 @@ label{display:block;color:var(--muted);font-size:12px;margin:14px 0 4px}
 .field .flabel{display:flex;justify-content:space-between;align-items:baseline}
 .field .flabel b{font-size:14px}
 .field .val{color:var(--teal2);font-weight:700;font-size:13px}
-.field .fdesc{color:var(--muted);font-size:12px;margin:3px 0 10px}
+/* was only styled inside .field, so the descriptions in Settings' toggle
+   rows and the Users tab rendered at body size */
+.fdesc{color:var(--muted);font-size:12px}
+.field .fdesc{margin:3px 0 10px}
 .field input[type=range]{width:100%;accent-color:var(--teal);height:6px}
 .secheadsmall{font-size:11px;letter-spacing:1.5px;color:var(--dim);margin:20px 0 12px}
 .tiercards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px}
