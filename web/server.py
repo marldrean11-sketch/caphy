@@ -3735,12 +3735,14 @@ def live():
               <svg viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
               Retry</button>
           </div>
-          <div class="detbox">
-            <div class="dh">DETECTION</div>
-            <div class="dr"><span>Factor 1 &middot; Motion</span><span class="dot" id="dm" style="background:var(--dim)"></span></div>
-            <div class="dr"><span>Factor 2 &middot; Person</span><span class="dot" id="dp" style="background:var(--dim)"></span></div>
-            <div class="dd" id="ddWrap">No one in view</div>
-          </div>
+          <!-- command-center overlay (notes section 26): corner brackets, the
+               camera on the video, the two detection factors as chips and the
+               distance big at the bottom right. Was: a floating DETECTION box
+               over the top-left of the picture. Ids dm / dp / ddWrap kept for poll(). -->
+          <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+          <span class="cclab"><b id="liveNo">CAM 01</b><span id="liveLabName">__MAIN_NAME__</span></span>
+          <div class="hud" aria-label="Detection"><span class="hudchip" id="dm">F1 MOTION</span><span class="hudchip" id="dp">F2 PERSON</span></div>
+          <div class="hudist" id="hudDist" hidden><b id="ddWrap">-</b><span id="ddTier"></span></div>
           <!-- fullscreen: just the video. Only an Exit button, which auto-hides. -->
           <button class="fsexit" id="fsexit" onclick="fsMain()">&#10005;&nbsp;Exit</button>
         </div>
@@ -3868,6 +3870,11 @@ def live():
       document.getElementById('mainFeed').src = '/video_feed/'+id;
       document.getElementById('mainName').textContent = document.querySelector('#ci'+id+' .cn').textContent;
       document.getElementById('mainFeed').alt = document.getElementById('mainName').textContent + ' live view';
+      // overlay follows the camera; detection starts blank until the next poll
+      document.getElementById('liveLabName').textContent = document.getElementById('mainName').textContent;
+      const no = Array.prototype.indexOf.call(document.querySelectorAll('.camitem'), document.getElementById('ci'+id));
+      document.getElementById('liveNo').textContent = 'CAM ' + String(Math.max(0, no) + 1).padStart(2, '0');
+      showDetection({});
       // REC badge follows whichever camera is now the main view
       var mr = document.getElementById('mainRec'), idx = Array.prototype.indexOf.call(document.querySelectorAll('.camitem'), document.getElementById('ci'+id));
       if (mr && idx >= 0) { mr.dataset.recCam = idx; if (window.caphyStatusPoll) window.caphyStatusPoll(); }
@@ -3958,6 +3965,20 @@ def live():
     });
     syncCamDots();
 
+    // chips light up for each factor; the distance and what that tier does
+    // show only while someone is in view (same words as Overview's meter)
+    const TIER_DOES = ['', 'SNAPSHOT', 'CLIP', 'SIREN'];
+    function showDetection(s){
+      document.getElementById('dm').classList.toggle('on', !!s.motion);
+      document.getElementById('dp').classList.toggle('on', !!s.person);
+      const seen = !!(s.person && s.distance && s.distance !== '-');
+      document.getElementById('hudDist').hidden = !seen;
+      document.getElementById('mainwrap').classList.toggle('hasp', seen);
+      if (seen){
+        document.getElementById('ddWrap').textContent = (+s.distance).toFixed(1) + ' m';
+        document.getElementById('ddTier').textContent = s.tier ? 'TIER ' + s.tier + ' · ' + TIER_DOES[s.tier] : 'NO TIER';
+      }
+    }
     function fsMain(){
       const el = document.getElementById('mainwrap');
       if(document.fullscreenElement){ document.exitFullscreen(); }
@@ -4145,11 +4166,7 @@ def live():
           // "Camera Off" and "Offline" are different problems - say which
           if(cs) cs.textContent = !camOn ? 'Camera Off' : (s.online?'Online':'Offline');
           if(s.cam===sel){
-            document.getElementById('dm').style.background = s.motion?'var(--green)':'var(--dim)';
-            document.getElementById('dp').style.background = s.person?'var(--green)':'var(--dim)';
-            const dw = document.getElementById('ddWrap');
-            if (dw) dw.textContent = (s.person && s.distance && s.distance !== '-')
-              ? 'Est. distance ' + s.distance + ' m away' : 'No one in view';
+            showDetection(s);
             syncCamCloseBtn(!camOn);
             // Camera deliberately closed (paused) is a distinct, expected
             // state - not a failure - so it should show neither the

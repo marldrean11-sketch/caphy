@@ -923,6 +923,38 @@ a.tlb:hover .tltip,a.tlb:focus-visible .tltip{display:block}
   .tl24{gap:2px}
 }
 
+/* ===================== COMMAND-CENTER LIVE =====================
+   Part 3 (live() in server.py): the main feed gets the camera wall's
+   brackets and name, the two factors as chips and the distance readout;
+   the border turns the status colour while someone is in view. */
+#mainwrap{border:1px solid var(--line);transition:border-color .3s}
+#mainwrap.hasp{border-color:var(--c)}
+#mainwrap .brk{position:absolute;z-index:2;width:22px;height:22px;border:0 solid rgba(236,234,242,.6);pointer-events:none}
+#mainwrap .brk.tl{top:12px;left:12px;border-top-width:2px;border-left-width:2px}
+#mainwrap .brk.tr{top:12px;right:12px;border-top-width:2px;border-right-width:2px}
+#mainwrap .brk.bl{bottom:12px;left:12px;border-bottom-width:2px;border-left-width:2px}
+#mainwrap .brk.br{bottom:12px;right:12px;border-bottom-width:2px;border-right-width:2px}
+#mainwrap.hasp .brk{border-color:var(--c)}
+#mainwrap .cclab{top:15px;left:40px;font-size:11.5px}
+#mainwrap .cclab b{font-weight:600}
+#mainwrap .camstate{z-index:1}
+.hud{position:absolute;z-index:2;left:40px;bottom:17px;display:flex;gap:8px}
+.hudchip{font:600 10.5px var(--mono);letter-spacing:1px;padding:4px 8px;border-radius:5px;background:rgba(11,10,16,.85);
+  border:1px solid var(--line2);color:var(--dim);transition:color .2s,border-color .2s}
+.hudchip.on{color:var(--text);border-color:var(--c)}
+.hudist{position:absolute;z-index:2;right:40px;bottom:15px;text-align:right;background:rgba(11,10,16,.72);padding:4px 8px;border-radius:6px}
+.hudist[hidden]{display:none}
+.hudist b{display:block;font:600 26px/1.1 var(--mono);color:var(--text)}
+.hudist span{font:600 10.5px var(--mono);letter-spacing:1.4px;color:var(--c)}
+@media (max-width:600px){
+  #mainwrap .brk{width:16px;height:16px}
+  #mainwrap .cclab{left:32px;top:12px;font-size:10px}
+  .hud{left:32px;bottom:12px;gap:5px}
+  .hudchip{font-size:9.5px;padding:3px 6px}
+  .hudist{right:32px;bottom:10px}
+  .hudist b{font-size:19px}
+}
+
 /* ===================== PHONE / NARROW WIDTH =====================
    Below 900px the fixed 230px sidebar becomes a slide-in drawer opened
    from the header's menu button (base.html), and multi-column layouts

@@ -21,7 +21,7 @@ minimise hook in the two desktop launchers (§19).
 | Interactive | tier meter §10, snapshot stepping §12, keyboard shortcuts §13, Live hold-to-disarm §5 |
 | Phones | bottom tab bar §14, History cards §15, Live camera swipe §16 |
 | Quality | accessibility §17, hidden-tab pause §18, desktop window + minimise fix §19, dark scrollbars §20 |
-| New look | shell §24, Overview §25 |
+| New look | shell §24, Overview §25, Live §26 |
 | Fixes | tile width §1, overlays under header §11, Settings descriptions §21, server-down banner §22, live bell count §23 |
 
 **Needs a decision** (see "Noticed, not changed" at the end):
@@ -760,6 +760,38 @@ flat surfaces, status colours only for status, white-on-ink buttons, the
     includes the camera), status light 12/12.
 - **Screenshots:** `docs/screenshots/25-overview-1440.png`, `-watch.png`,
   `-390.png`
+
+---
+
+## 26. Command-center look, part 3: Live overlay (Oct 29)
+
+- **What:**
+  - The main feed gets the camera wall's corner brackets and
+    "CAM 01 · name" on the video.
+  - The two detection factors are chips at the bottom left (**F1
+    MOTION**, **F2 PERSON**); each lights up with a status-colour edge
+    when it fires.
+  - While someone is in view, the distance shows big at the bottom
+    right with what that tier does ("2.7 m", "TIER 2 · CLIP", the same
+    words as Overview's meter), and the feed border and brackets turn the
+    status colour.
+  - It all follows a camera switch (list, swipe, dots, ← →) and starts
+    clear for the new camera.
+- **Why:** it was a floating "DETECTION" box over the top-left of the
+  picture. Now the picture stays clear and reads like a CCTV monitor.
+- **Files:** `web/server.py` (`live()` markup + `showDetection()`; poll()
+  calls it), `web/static/style.css` (the COMMAND-CENTER LIVE block)
+- **Tested (8/8):**
+  - 4 brackets and the label; the old box is gone.
+  - A stand-in `/api/stats` person at 2.7 m Tier 2 lights both chips,
+    shows "2.7 m / TIER 2 · CLIP" and the border. Motion only lights F1
+    alone, with no distance.
+  - Switching to a stand-in second camera shows "CAM 02 Garage", cleared.
+  - At 768 and 390 the overlay stays inside the feed, with no sideways
+    scroll. No page errors.
+  - Re-run: Live hold 11/11, swipe 20/20.
+- **Screenshot:** `docs/screenshots/26-live-overlay.png` (stand-in
+  person; the camera was off)
 
 ---
 
