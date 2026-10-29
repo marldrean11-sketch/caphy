@@ -199,6 +199,32 @@ checks - no sideways scrolling allowed).
 - **Screenshots:** `docs/screenshots/09-activity-skeleton-1440.png`,
   `docs/screenshots/09-activity-skeleton-390.png`
 
+## 10. Settings: tier distance meter with drag handles (Oct 29)
+
+- **What:** above the three tier cards, the same 10 m -> camera meter as
+  Overview, with two white drag handles for the Tier 1 and Tier 3
+  boundaries. Dragging resizes the bands live, shows each range in its
+  band, updates the Tier 2 card's "2.5-4.5 m" text and fills the two
+  boxes. Typing in a box moves its handle. Tier 3 always stays at least
+  0.5 m inside Tier 1. Arrow keys move a focused handle 0.1 m. When
+  someone is in view, their live distance shows as a marker on the meter,
+  so you can stand at the door and set the line by eye.
+- **Why:** the plan said "live distance meter while dragging the tier
+  sliders", but there were no sliders - just two typed boxes and a Tier 2
+  range that only updated after saving. The form still posts the same
+  `tier1` / `tier3` boxes (the handles have no `name`), so saving and
+  detection are unchanged.
+- **Files:** `web/server.py` (`settings()`: meter markup + script),
+  `web/static/style.css` (`.tmeter`, `.thandle`)
+- **Tested:** band edges land on the saved distances (+-2 px); dragging
+  Tier 1 to ~6 m moves box, Tier 2 text and band edge; Tier 3 can't cross
+  Tier 1; arrow keys; typing moves the handle; live marker at 3.1 m;
+  Save would post the new values (POST intercepted - nothing was saved,
+  so your real thresholds are unchanged); 390px fits, no sideways scroll;
+  no page errors. 13/13.
+- **Screenshots:** `docs/screenshots/10-tier-meter-1440.png`,
+  `docs/screenshots/10-tier-meter-390.png`
+
 ---
 
 ## Noticed, not changed
@@ -216,3 +242,12 @@ checks - no sideways scrolling allowed).
   in `page()`); only Overview's two counts are live.
 - In the 340px alert toast the "camera · distance · time" line wraps to two
   lines when View is shown. Readable; cutting it would hide the time.
+- Overview's meter always shows the config defaults (4.5 / 2.5 m, fixed
+  55/20/25 band widths), not the thresholds saved in Settings - after
+  changing them in Settings the two meters disagree.
+- Tier wording differs: Overview's meter says "Tier 1 · snapshot, Tier 2 ·
+  clip, Tier 3 · siren"; Settings' cards say "Record event only / Take a
+  snapshot and notify / Record video, sound siren, and notify". Which is
+  right is Kem's call (detection rules).
+- Settings: the toggle descriptions ("Brightens dark camera images
+  automatically.") render at body size, not the small grey `.fdesc` size.

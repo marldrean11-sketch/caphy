@@ -6966,11 +6966,27 @@ def settings():
                  oninput="document.getElementById('pcVal').textContent=(+this.value).toFixed(2)">
         </div>
         <div class="secheadsmall">THREE-TIER DISTANCE THRESHOLDS</div>
+        <div class="subd" style="margin:-4px 0 0">Drag a handle or type a distance. If someone is in view, their distance shows on the meter.</div>
+        <!-- same 10 m -> camera meter as Overview, with two handles for the
+             Tier 1 / Tier 3 boundaries; they stay in step with the two boxes
+             below, which are still what the form posts (script at the end
+             of settings()) -->
+        <div class="meter tmeter">
+          <div class="track" id="tTrack">
+            <div class="band" id="tb1"><span class="bl">TIER 1&nbsp;</span><span class="bv"></span></div>
+            <div class="band" id="tb2"><span class="bl">TIER 2&nbsp;</span><span class="bv"></span></div>
+            <div class="band" id="tb3"><span class="bl">TIER 3&nbsp;</span><span class="bv"></span></div>
+            <div class="mk" id="tMk"><span id="tMkT"></span></div>
+            <input type="range" class="thandle" id="tr1" min="0" max="10" step="0.1" value="{t1}" dir="rtl" aria-label="Tier 1 starts at, metres">
+            <input type="range" class="thandle" id="tr3" min="0" max="10" step="0.1" value="{t3}" dir="rtl" aria-label="Tier 3 starts at, metres">
+          </div>
+          <div class="scale"><span>10 m</span><span>camera</span></div>
+        </div>
         <div class="tiercards">
           <div class="tiercard t1"><div class="tl">Tier 1 &middot; Far Away</div>
             <div class="tv">&gt; <input class="tin" name="tier1" value="{t1}"> m</div><div class="tsub">Record event only</div></div>
           <div class="tiercard t2"><div class="tl">Tier 2 &middot; Medium Distance</div>
-            <div class="tv">{t3}&ndash;{t1} m</div><div class="tsub">Take a snapshot and notify</div></div>
+            <div class="tv" id="t2Range">{t3}&ndash;{t1} m</div><div class="tsub">Take a snapshot and notify</div></div>
           <div class="tiercard t3"><div class="tl">Tier 3 &middot; Close Range</div>
             <div class="tv">&lt; <input class="tin" name="tier3" value="{t3}"> m</div><div class="tsub">Record video, sound siren, and notify</div></div>
         </div>
@@ -7494,6 +7510,51 @@ def settings():
         }
       }
     });
+
+    // ---- tier distance meter (Detection tab) ----
+    // Two range handles on a 10 m -> camera track (dir=rtl, so far is on
+    // the left like Overview's meter). Dragging updates the bands, the
+    // Tier 2 range text and the tier1/tier3 boxes the form posts; typing in
+    // a box moves its handle. Tier 3 always stays at least 0.5 m inside
+    // Tier 1. The live marker is the current person distance from
+    // /api/state, so you can stand at the door and set the line by eye.
+    (function(){
+      const track = document.getElementById('tTrack');
+      if (!track) return;
+      const r1 = document.getElementById('tr1'), r3 = document.getElementById('tr3');
+      const in1 = document.querySelector('input[name=tier1]'), in3 = document.querySelector('input[name=tier3]');
+      const GAP = 0.5, LO = 0.5, HI = 9.5;
+      function fmt(v){ return (Math.round(v * 10) / 10).toString(); }
+      function draw(){
+        const t1 = +r1.value, t3 = +r3.value;
+        // band widths follow the distances: 10 m..t1, t1..t3, t3..camera
+        track.style.gridTemplateColumns = (10 - t1) + 'fr ' + (t1 - t3) + 'fr ' + t3 + 'fr';
+        document.querySelector('#tb1 .bv').textContent = '> ' + fmt(t1) + ' m';
+        document.querySelector('#tb2 .bv').textContent = fmt(t3) + '–' + fmt(t1) + ' m';
+        document.querySelector('#tb3 .bv').textContent = '< ' + fmt(t3) + ' m';
+        document.getElementById('t2Range').textContent = fmt(t3) + '–' + fmt(t1) + ' m';
+      }
+      function set1(v){ r1.value = Math.min(HI, Math.max(+r3.value + GAP, v)); }
+      function set3(v){ r3.value = Math.max(LO, Math.min(+r1.value - GAP, v)); }
+      r1.addEventListener('input', function(){ set1(+r1.value); in1.value = fmt(r1.value); draw(); });
+      r3.addEventListener('input', function(){ set3(+r3.value); in3.value = fmt(r3.value); draw(); });
+      // typing: follow the box while it's a number, tidy it up on change
+      in1.addEventListener('input', function(){ const v = parseFloat(in1.value); if (!isNaN(v)) { set1(v); draw(); } });
+      in3.addEventListener('input', function(){ const v = parseFloat(in3.value); if (!isNaN(v)) { set3(v); draw(); } });
+      in1.addEventListener('change', function(){ in1.value = fmt(r1.value); });
+      in3.addEventListener('change', function(){ in3.value = fmt(r3.value); });
+      set1(+r1.value); set3(+r3.value); draw();
+
+      const mk = document.getElementById('tMk');
+      document.addEventListener('caphy:state', function(ev){
+        const st = ev.detail, d = parseFloat(st.distance);
+        if (st.tier && !isNaN(d) && st.level !== 'offline') {
+          mk.style.opacity = 1;
+          mk.style.left = Math.max(0, Math.min(99.5, (10 - d) * 10)) + '%';
+          document.getElementById('tMkT').textContent = d.toFixed(1) + ' m';
+        } else mk.style.opacity = 0;
+      });
+    })();
     </script>""".replace("__NAV__", nav).replace("__SECS__", secs)
     return page("Settings", "/settings", body,
                 subtitle="Manage your CAPHY settings.")
