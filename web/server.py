@@ -6025,7 +6025,13 @@ def history():
         const newResults = doc.getElementById('historyResults');
         const newPills = doc.getElementById('fpillsBar');
         const newTotalEl = doc.getElementById('totalCount');
-        if(newResults) document.getElementById('historyResults').innerHTML = newResults.innerHTML;
+        if(newResults) {{
+          document.getElementById('historyResults').innerHTML = newResults.innerHTML;
+          // the new rows fade up in turn (static/motion.js) so it's clear
+          // the table actually changed; header and hidden rows skipped
+          if(window.caphyStagger) window.caphyStagger([...document.querySelectorAll('#histTable tr')]
+            .filter(function(tr){{ return !tr.querySelector('th') && tr.offsetParent !== null; }}), 12);
+        }}
         if(newPills) document.getElementById('fpillsBar').innerHTML = newPills.innerHTML;
         if(newTotalEl) {{
           currentTotal = parseInt(newTotalEl.textContent.replace(/,/g,''), 10) || 0;
@@ -6521,12 +6527,15 @@ def activity():
         f'<button type="button" class="fpill{" active" if g == "" else ""}" data-group="{g}">{label}</button>'
         for g, label in (("", "All"), ("arming", "Arming"), ("siren", "Siren"),
                          ("cameras", "Cameras"), ("access", "Sign-ins"), ("alerts", "Alerts")))
+    # skeleton rows shaped like .actrow while the list loads (was: "Loading...")
+    skel = '<div class="skelrow" aria-hidden="true"><i></i><i class="ic"></i><i class="ln"></i></div>' * 6
     body = f"""
     <div class="toolbar"><div class="fpills" id="actFilters">{pills}</div></div>
-    <div class="panel"><div id="actList" class="actlist"><div class="actempty">Loading&hellip;</div></div></div>
+    <div class="panel"><div id="actList" class="actlist" aria-busy="true">{skel}</div></div>
     <script>
     (function(){{
       var group = '', lastId = 0, rows = [];
+      const SKEL = {json.dumps(skel)};
       var ICON = {{
         arm: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
         disarm: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/>',
@@ -6559,8 +6568,9 @@ def activity():
           + '<span class="acticon"><svg viewBox="0 0 24 24">' + (ICON[r.kind] || ICON.system) + '</svg></span>'
           + '<div><b>' + esc(r.text) + '</b><small>' + meta + '</small></div></div>';
       }}
-      function render(freshIds){{
+      function render(freshIds, stagger){{
         var box = document.getElementById('actList');
+        box.removeAttribute('aria-busy');
         if (!rows.length) {{ box.innerHTML = '<div class="actempty">Nothing here yet. Arming, the siren, cameras and sign-ins will show up as they happen.</div>'; return; }}
         var html = '', day = '';
         rows.forEach(function(r){{
@@ -6569,12 +6579,27 @@ def activity():
           html += rowHtml(r, freshIds && freshIds[r.activity_id]);
         }});
         box.innerHTML = html;
+        // a full load (first visit / filter) fades the rows up in turn;
+        // the 4 s poll doesn't - its new rows already slide in (.fresh)
+        if (stagger && window.caphyStagger) window.caphyStagger(box.querySelectorAll('.actrow'), 12);
       }}
       function load(){{
+        const box = document.getElementById('actList');
+        // filter changes: only show the skeleton if the answer takes a
+        // moment - a local fetch is usually instant and a 50 ms flash of
+        // grey blocks looks worse than nothing
+        const skelTimer = setTimeout(function(){{ box.innerHTML = SKEL; box.setAttribute('aria-busy', 'true'); }}, 150);
         fetch('/api/activity?limit=200&group=' + group, {{cache:'no-store'}})
           .then(function(r){{ return r.json(); }})
-          .then(function(list){{ rows = list; lastId = list.length ? list[0].activity_id : lastId; render(); }})
-          .catch(function(){{}});
+          .then(function(list){{ clearTimeout(skelTimer); rows = list; lastId = list.length ? list[0].activity_id : lastId; render(null, true); }})
+          .catch(function(){{
+            clearTimeout(skelTimer);
+            // was: an empty catch, which left "Loading..." up for good
+            if (box.querySelector('.skelrow')) {{
+              box.removeAttribute('aria-busy');
+              box.innerHTML = '<div class="actempty">Couldn\\'t load the activity log. It will retry when you pick a filter or reload.</div>';
+            }}
+          }});
       }}
       function poll(){{
         fetch('/api/activity?limit=50&group=' + group + '&after=' + lastId, {{cache:'no-store'}})

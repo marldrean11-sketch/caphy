@@ -171,6 +171,34 @@ checks - no sideways scrolling allowed).
   motion shows the real value from the first frame; no page errors.
   Alert-toast tests re-run: 18/18.
 
+## 9. Loading skeletons + rows fade up (Oct 29)
+
+- **What:** Activity starts with 6 flat skeleton rows shaped like activity
+  rows (time, icon, line) that breathe (opacity .45-1, 900 ms) instead of
+  "Loading...". On a filter change the skeleton only appears if the answer
+  takes over 150 ms. When a load finishes the first 12 rows fade up 40 ms
+  apart (`caphyStagger`); the 4 s poll doesn't re-stagger (its new rows
+  already slide in). Alert History: after a Last 24h / Include
+  acknowledged / page change swaps the table, the visible rows fade up the
+  same way. `aria-busy` is set while the skeleton shows.
+- **Why:** approved preview item 6. Opacity only, no shimmer (needs a
+  gradient). Alert History has no skeleton on purpose: it already dims the
+  table while loading, and the local fetch is usually so quick that a
+  skeleton would just flash. Also fixed on the way: a failed Activity load
+  used to leave "Loading..." up for good (empty catch); it now says it
+  couldn't load.
+- **Files:** `web/static/style.css` (`.skelrow`, `.fadeup`),
+  `web/server.py` (`activity()` markup + script, `history()` swap)
+- **Tested:** server HTML has the skeleton + aria-busy; skeleton breathes
+  while a (deliberately slowed) load runs, rows replace it with 0/40/80 ms
+  delays (max 12); slow filter shows it, fast filter never flashes it; a
+  real arm/disarm row arrives by poll with `.fresh` and no re-stagger;
+  failed load shows the message; History swap rows fade up; reduced
+  motion = still skeleton, no stagger; 390px no sideways scroll; no page
+  errors. 15/15.
+- **Screenshots:** `docs/screenshots/09-activity-skeleton-1440.png`,
+  `docs/screenshots/09-activity-skeleton-390.png`
+
 ---
 
 ## Noticed, not changed

@@ -675,6 +675,22 @@ html[data-siren=true] .hero .caphy-logo{animation:caphy-pulse 1s ease-in-out inf
 .actrow.fresh{animation:actin .5s var(--ease)}
 @keyframes actin{from{opacity:0;transform:translateY(-8px)}}
 .actempty{color:var(--dim);font-size:13px;padding:8px 0}
+/* loading skeleton (approved in docs/motion_preview.html): flat blocks the
+   shape of an activity row that breathe (opacity .45-1, 900 ms) while the
+   list loads. Not the usual shimmer - that needs a gradient, which the
+   flat-surface rule rules out, and opacity is cheaper on the YOLO laptop.
+   Reduced motion (global rule) leaves them still. */
+.skelrow{display:grid;grid-template-columns:48px 32px 1fr;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.skelrow i{display:block;height:10px;border-radius:4px;background:var(--s3);animation:breathe .9s ease-in-out infinite alternate}
+.skelrow i.ic{width:32px;height:32px;border-radius:8px}
+.skelrow i.ln{width:60%}
+.skelrow:nth-child(3n+2) i.ln{width:42%}
+.skelrow:nth-child(3n) i.ln{width:74%}
+@keyframes breathe{from{opacity:1}to{opacity:.45}}
+/* rows of a freshly loaded list fade up one after another (caphyStagger in
+   static/motion.js sets the 40 ms delays) */
+.fadeup{animation:rowup .3s var(--ease) both}
+@keyframes rowup{from{opacity:0;transform:translateY(6px)}}
 .detbox .dd{color:var(--text)}
 
 /* ---------------- toasts (static/toast.js) ----------------
