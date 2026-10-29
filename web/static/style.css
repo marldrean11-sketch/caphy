@@ -955,6 +955,23 @@ a.tlb:hover .tltip,a.tlb:focus-visible .tltip{display:block}
   .hudist b{font-size:19px}
 }
 
+/* ===================== COMMAND-CENTER PAGES =====================
+   Part 4: the shared pieces every page uses, in the console style - panel
+   headings and table headers as small mono labels, the active filter
+   filled white (an action, not a status), tier / REC tags as square mono
+   chips, Settings' tab list with the sidebar's status-colour edge. */
+.panel .ph h2,.panel>h2{font:600 12px var(--mono);letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
+.panel .ph h2 #totalCount{color:var(--text)}
+#mainName{color:var(--text)}
+th{font:600 10.5px var(--mono);letter-spacing:1.4px;text-transform:uppercase;color:var(--dim)}
+.fpill.active{background:var(--text);color:var(--ink);border-color:var(--text)}
+.pill{border-radius:5px;font:700 10.5px var(--mono);letter-spacing:.8px;text-transform:uppercase;padding:3px 8px}
+.setnav a{position:relative}
+.setnav a.active::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--c)}
+.sechead{font-weight:600;letter-spacing:-.01em}
+.secheadsmall{font:600 10.5px var(--mono);letter-spacing:1.6px;text-transform:uppercase}
+@media (max-width:900px){.setnav a.active::before{left:8px;right:8px;top:auto;bottom:0;width:auto;height:2px;border-radius:2px 2px 0 0}}
+
 /* ===================== PHONE / NARROW WIDTH =====================
    Below 900px the fixed 230px sidebar becomes a slide-in drawer opened
    from the header's menu button (base.html), and multi-column layouts

@@ -21,7 +21,7 @@ minimise hook in the two desktop launchers (§19).
 | Interactive | tier meter §10, snapshot stepping §12, keyboard shortcuts §13, Live hold-to-disarm §5 |
 | Phones | bottom tab bar §14, History cards §15, Live camera swipe §16 |
 | Quality | accessibility §17, hidden-tab pause §18, desktop window + minimise fix §19, dark scrollbars §20 |
-| New look | shell §24, Overview §25, Live §26 |
+| New look | shell §24, Overview §25, Live §26, other pages §27 |
 | Fixes | tile width §1, overlays under header §11, Settings descriptions §21, server-down banner §22, live bell count §23 |
 
 **Needs a decision** (see "Noticed, not changed" at the end):
@@ -792,6 +792,33 @@ flat surfaces, status colours only for status, white-on-ink buttons, the
   - Re-run: Live hold 11/11, swipe 20/20.
 - **Screenshot:** `docs/screenshots/26-live-overlay.png` (stand-in
   person; the camera was off)
+
+---
+
+## 27. Command-center look, part 4: the other pages (Oct 29)
+
+- **What:** the shared pieces every page uses, in the console style.
+  - Panel headings and table headers are small mono uppercase labels
+    ("LIVE LOG", "EVENT · CAMERA · DISTANCE"). The History count stays
+    white inside its label.
+  - The active filter pill is filled white: it's an action, not a status.
+  - Tier and REC tags are square mono chips.
+  - Settings' active tab gets the sidebar's status-colour edge (a bottom
+    bar when the tab list scrolls sideways on narrow screens).
+  - Section labels inside Settings ("THREE-TIER DISTANCE THRESHOLDS") are
+    mono.
+- **Old-brand leftovers removed:** 10 teal tints (`rgba(63,215,196,…)`)
+  on History (icon tiles, View hover, selected rows, the new-alerts
+  banner), Live (state chips, Open All hover), Logs' filter buttons and
+  the Google sign-in note are now neutral.
+- **Files:** `web/static/style.css` (the COMMAND-CENTER PAGES block),
+  `web/server.py` (the teal tints)
+- **Tested:** History, Activity, Logs and Settings at 1440 and 390 with
+  no sideways scroll and no errors (10/10). Re-run: History cards 12/12,
+  tab bar 23/23, keyboard 27/27, snapshot viewer 22/22.
+- **Screenshots:** `docs/screenshots/27-settings-1440.png`,
+  `-logs-1440.png`, `-activity-390.png`. No History screenshot: its
+  thumbnails are real snapshots.
 
 ---
 

@@ -4230,7 +4230,7 @@ def live():
       .statebar{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
       .statebar .sb{font-size:11px;letter-spacing:.4px;padding:5px 11px;border-radius:20px;
         border:1px solid var(--line);color:var(--dim);background:var(--panel);font-weight:600}
-      .statebar .sb.on{color:var(--teal2);border-color:var(--teal2);background:rgba(63,215,196,.08)}
+      .statebar .sb.on{color:var(--teal2);border-color:var(--teal2);background:rgba(236,234,242,.08)}
       #sbEmg.on{color:var(--red);border-color:var(--red);background:rgba(229,72,77,.1)}
       #sbCam:not(.on){color:var(--orange);border-color:var(--orange)}
 
@@ -4312,7 +4312,7 @@ def live():
         border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
       .closeallbtn:hover{border-color:var(--red);color:var(--red)}
       .closeallbtn.openall{border-color:var(--teal2);color:var(--teal2)}
-      .closeallbtn.openall:hover{background:rgba(63,215,196,.1)}
+      .closeallbtn.openall:hover{background:rgba(236,234,242,.1)}
     </style>
     """.replace("__CAM_ITEMS__", cam_items).replace("__MAIN_NAME__", main_name).replace("__MAIN_ID__", str(main_id)).replace("__MAIN_IDX__", "0").replace("__CAM_CLOSE_BTN__", cam_close_btn)
     return page("Live Camera", "/live", body)
@@ -6139,7 +6139,7 @@ def history():
           <button class="btn ghost" onclick="exitSelectMode()">Cancel</button>
         </div>
       </div>
-      <div id="newAlertBanner" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(63,215,196,.1);
+      <div id="newAlertBanner" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(236,234,242,.1);
         border:1px solid var(--teal2);border-radius:8px;color:var(--teal2);font-size:13px;font-weight:600;
         cursor:pointer;text-align:center" onclick="location.reload()">
         New alert(s) came in &mdash; click to refresh
@@ -6643,7 +6643,7 @@ def history():
         text-transform:uppercase;color:var(--teal2);border-bottom:1px solid var(--line2)}}
       .histtable td{{padding:12px 14px;border-top:1px solid var(--line);font-size:13px;vertical-align:middle}}
       .evrow{{display:flex;align-items:center;gap:12px}}
-      .evrow .av{{width:44px;height:32px;border-radius:6px;background:rgba(63,215,196,.15);
+      .evrow .av{{width:44px;height:32px;border-radius:6px;background:var(--s3);
         flex-shrink:0;display:flex;align-items:center;justify-content:center}}
       .evrow .av svg{{width:18px;height:18px;stroke:var(--teal2);fill:none;stroke-width:2}}
       .evrow img.av.thumb{{object-fit:cover;border:1px solid var(--line2);background:var(--bg)}}
@@ -6653,7 +6653,7 @@ def history():
         border:1px solid var(--teal2);color:var(--teal2);border-radius:7px;
         padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;
         text-decoration:none;white-space:nowrap;background:transparent}}
-      .viewbtn:hover{{background:rgba(63,215,196,.1)}}
+      .viewbtn:hover{{background:rgba(236,234,242,.1)}}
       .viewbtn.disabled{{color:var(--dim);border-color:var(--line);cursor:default;pointer-events:none}}
       .delbtn{{background:transparent;border:1px solid var(--line);color:var(--text);
         border-radius:7px;padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer;
@@ -6666,9 +6666,9 @@ def history():
       .rowchk{{width:17px;height:17px;accent-color:var(--teal2);cursor:pointer}}
       #histTable tr[data-id]{{transition:background-color .12s}}
       #histTable.selectmode tr[data-id]{{cursor:pointer}}
-      #histTable.selectmode tr[data-id]:hover{{background:rgba(63,215,196,.05)}}
-      #histTable tr.rowselected{{background:rgba(63,215,196,.08)}}
-      #histTable tr.rowselected td{{border-top-color:rgba(63,215,196,.25)}}
+      #histTable.selectmode tr[data-id]:hover{{background:rgba(236,234,242,.05)}}
+      #histTable tr.rowselected{{background:rgba(236,234,242,.08)}}
+      #histTable tr.rowselected td{{border-top-color:rgba(236,234,242,.25)}}
       #selectActions{{display:flex;align-items:center;gap:10px}}
       #selCountTxt{{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}}
 
@@ -7091,7 +7091,7 @@ def logs():
         border-radius:8px;padding:6px 13px;font-size:11.5px;font-weight:700;letter-spacing:.4px;
         cursor:pointer;transition:.15s}}
       .fbtn:hover{{color:var(--text);border-color:var(--teal2)}}
-      .fbtn.active{{color:var(--teal2);border-color:var(--teal2);background:rgba(63,215,196,.08)}}
+      .fbtn.active{{color:var(--teal2);border-color:var(--teal2);background:rgba(236,234,242,.08)}}
       .logstats{{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12.5px;
         margin:12px 0 14px;padding:10px 14px;background:var(--panel);border:1px solid var(--line);
         border-radius:10px}}
@@ -7515,7 +7515,7 @@ def settings():
     # Check if user signed in via Google (no password set yet)
     google_prompt = ""
     if session.get("signed_in_with") == "google":
-        google_prompt = '<div style="padding:12px;background:rgba(63,215,196,.1);border-radius:8px;border-left:3px solid var(--teal2);margin-bottom:16px;color:var(--muted);font-size:13px"><b>Tip:</b> You signed in with Google. To control CAPHY from the command line or use password-based login, you can optionally set a password below.</div>'
+        google_prompt = '<div style="padding:12px;background:rgba(236,234,242,.1);border-radius:8px;border-left:3px solid var(--teal2);margin-bottom:16px;color:var(--muted);font-size:13px"><b>Tip:</b> You signed in with Google. To control CAPHY from the command line or use password-based login, you can optionally set a password below.</div>'
 
     name_status = request.args.get("name", "")
     name_msg = ('<div class="fdesc" style="color:var(--green)">✓ Name updated.</div>' if name_status == "ok"
