@@ -8,6 +8,49 @@ How each change was tested: `python app.py`, signed in with the local test
 account, checked in Chrome at the widths listed (390 / 768 are the phone
 checks - no sideways scrolling allowed).
 
+## Summary (for Kem)
+
+All on `brand-refresh`, one commit per section, nothing pushed or merged.
+Detection, tier logic and alert rules are untouched. The only server-side
+changes are UI-facing: `unread` added to `/api/state` (§23), and the
+minimise hook in the two desktop launchers (§19).
+
+| Area | Sections |
+|---|---|
+| Motion | toasts §4, alert toast §6, page transitions §7, count-up §8, skeletons §9 |
+| Interactive | tier meter §10, snapshot stepping §12, keyboard shortcuts §13, Live hold-to-disarm §5 |
+| Phones | bottom tab bar §14, History cards §15, Live camera swipe §16 |
+| Quality | accessibility §17, hidden-tab pause §18, desktop window + minimise fix §19, dark scrollbars §20 |
+| Fixes | tile width §1, overlays under header §11, Settings descriptions §21, server-down banner §22, live bell count §23 |
+
+**Needs a decision** (see "Noticed, not changed" at the end):
+- Should Overview's meter use the thresholds saved in Settings? (Marl)
+- The tier wording differs between Overview and Settings. (Kem)
+- `--dim` text contrast is below 4.5:1. (Marl)
+
+**Not tested:**
+- A second real camera. Live swipe was tested with stand-ins.
+- A real screen reader. Roles, names and live text were checked directly.
+- The packaged .exe build.
+- Live video crop with a camera on.
+
+**Final regression run (Oct 29, after the last commit):**
+- Passed: toast 21/21, alert toast 18/18, count-up 9/9, skeletons 15/15,
+  tier meter 13/13, snapshots 22/22, shortcuts 17/17, Live hold 11/11,
+  tab bar 23/23, cards 12/12, swipe 20/20, keyboard/a11y 27/27,
+  hidden-tab pause 17/17, fixes §21-23 20/20.
+- Cut short by low memory on the laptop: the desktop-window test (last
+  full pass 19/19, before §21-23), the markup audit (last clean before
+  §21-23) and the status-light test (§2).
+
+**Demo path:**
+1. Overview: the count-up, then Arm (toast), then hold to disarm (Undo).
+2. Live: hold to disarm, then fullscreen.
+3. Alert History: arrow keys or swipe through snapshots, then `/` to search.
+4. Settings: drag the tier meter.
+5. Phone width: the tab bar, then History cards.
+6. `?` for the shortcuts.
+
 ---
 
 ## 1. Overview camera tile fills its column (Oct 28)
