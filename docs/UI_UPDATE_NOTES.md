@@ -287,6 +287,31 @@ checks - no sideways scrolling allowed).
   arm, Esc leaves it; no page errors. 17/17. Armed state restored.
 - **Screenshot:** `docs/screenshots/13-shortcuts-help.png`
 
+## 14. Phone tab bar (Nov 1 item, done Oct 29)
+
+- **What:** at 600px and below, a bottom tab bar: Overview · Live · **Arm**
+  · Alerts · More. Arm is the same `.hold` button as the sidebar's (tap
+  arms, 1.2 s hold disarms, Undo toast); its label reads "Arm"/"Armed" and
+  the shield turns the status colour when armed. Alerts carries the unread
+  badge. More opens the existing drawer (Activity, Logs, Settings, status,
+  account) and is highlighted on those pages. The header's menu button and
+  bell hide at this width (the bar has both). The active tab gets a short
+  bar in the status colour. Content, toasts and the drawer foot leave room
+  for the bar (+ iPhone home-indicator inset where reported).
+- **Why:** thumb reach; arming is the main phone action so it gets the
+  middle slot. 601-900px keeps the drawer + menu button as before.
+- **Files:** `web/templates/base.html` (tab bar markup, More opens the
+  drawer), `web/static/statuslight.js` (Arm tab label/state),
+  `web/static/style.css` (tab bar block at the end)
+- **Tested (390px, touch):** bar/menu button/bell visibility at 390, 600,
+  601, 768, 1440; correct tab active on all 6 pages; content ends above the
+  bar and no sideways scroll on all 6; active bar in the status colour; tap
+  Arm arms + toast above the bar; short press doesn't disarm; hold disarms
+  with Undo; More opens the drawer, a drawer link navigates and closes it,
+  tapping outside closes it; badge matches; no page errors. 23/23.
+- **Screenshots:** `docs/screenshots/14-tabbar-armed-390.png`,
+  `docs/screenshots/14-tabbar-more-390.png`
+
 ---
 
 ## Noticed, not changed

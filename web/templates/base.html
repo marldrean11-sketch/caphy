@@ -199,6 +199,27 @@
     <div id="pageEnd" hidden></div>
   </div>
 
+  <!-- Phone tab bar (shown below 600px instead of the header menu button).
+       Arm sits in the middle because it's the main action: a tap arms, a
+       1.2 s hold disarms - it's a .hold button, so statuslight.js handles
+       it exactly like the sidebar one. "More" opens the drawer, which still
+       has Activity, Logs, Settings, the status line and the account. -->
+  <nav class="tabbar" aria-label="Main">
+    <a href="/" class="{{ 'active' if page == '/' else '' }}"{% if page == '/' %} aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Overview</a>
+    <a href="/live" class="{{ 'active' if page == '/live' else '' }}"{% if page == '/live' %} aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>Live</a>
+    <button type="button" class="hold tabarm{{ ' armed' if armed else '' }}" id="tabArmBtn" data-act="arm" aria-keyshortcuts="A"
+            aria-label="{{ 'Armed. Hold to disarm' if armed else 'Arm system' }}"><span class="fill"></span>
+      <svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span class="lbl">{{ 'Armed' if armed else 'Arm' }}</span></button>
+    <a href="/history" class="{{ 'active' if page == '/history' else '' }}"{% if page == '/history' %} aria-current="page"{% endif %}>
+      {% if nalerts and nalerts > 0 %}<span class="badge">{{ nalerts if nalerts < 100 else '99+' }}</span>{% endif %}
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts</a>
+    <button type="button" id="tabMore" class="{{ 'active' if page in ('/activity', '/logs', '/settings') else '' }}"
+            aria-label="More: Activity, Logs, Settings, account" aria-expanded="false" aria-controls="sideNav">
+      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>More</button>
+  </nav>
+
   <div class="modalbg" id="appModal" onclick="if(event.target===this) closeModal(false)">
     <div class="modalcard">
       <div class="modalicon" id="modalIcon"></div>
@@ -300,11 +321,14 @@
     // ---- phone-width menu: the sidebar slides in from the left ----
     (function(){
       var btn = document.getElementById('menuBtn'), scrim = document.getElementById('navScrim');
+      var more = document.getElementById('tabMore');   // phone tab bar's "More" opens the same drawer
       function setOpen(open){
         document.body.classList.toggle('nav-open', open);
         if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (more) more.setAttribute('aria-expanded', open ? 'true' : 'false');
       }
       if (btn) btn.addEventListener('click', function(){ setOpen(!document.body.classList.contains('nav-open')); });
+      if (more) more.addEventListener('click', function(){ setOpen(!document.body.classList.contains('nav-open')); });
       if (scrim) scrim.addEventListener('click', function(){ setOpen(false); });
       document.querySelectorAll('.side .nav a').forEach(function(a){ a.addEventListener('click', function(){ setOpen(false); }); });
       document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setOpen(false); });

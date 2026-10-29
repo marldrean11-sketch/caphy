@@ -75,6 +75,13 @@
       arm.classList.toggle("armed", !!st.armed);
       arm.querySelector(".lbl").textContent = st.armed ? "Hold to disarm" : "Arm system";
     }
+    // phone tab bar's Arm: short label, the hold hint goes in aria-label
+    const tabArm = document.getElementById("tabArmBtn");
+    if (tabArm && st.level !== "offline") {
+      tabArm.classList.toggle("armed", !!st.armed);
+      tabArm.querySelector(".lbl").textContent = st.armed ? "Armed" : "Arm";
+      tabArm.setAttribute("aria-label", st.armed ? "Armed. Hold to disarm" : "Arm system");
+    }
     document.dispatchEvent(new CustomEvent("caphy:state", { detail: st }));
   }
 
