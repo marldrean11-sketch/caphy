@@ -39,9 +39,11 @@ minimise hook in the two desktop launchers (§19).
   tier meter 13/13, snapshots 22/22, shortcuts 17/17, Live hold 11/11,
   tab bar 23/23, cards 12/12, swipe 20/20, keyboard/a11y 27/27,
   hidden-tab pause 17/17, fixes §21-23 20/20.
-- Cut short by low memory on the laptop: the desktop-window test (last
-  full pass 19/19, before §21-23), the markup audit (last clean before
-  §21-23) and the status-light test (§2).
+- Re-run separately after low memory cut the first run short: status
+  light (§2) 12/12, markup audit clean on every page and Settings tab at
+  1440 and 390, desktop window 19/19. The desktop test's first retry
+  failed because the real mouse was over the window (a real pointerleave
+  cancels a hold). The pass was with the window moved off-screen.
 
 **Demo path:**
 1. Overview: the count-up, then Arm (toast), then hold to disarm (Undo).
