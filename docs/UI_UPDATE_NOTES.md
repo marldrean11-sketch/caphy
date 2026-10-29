@@ -443,6 +443,45 @@ focus landing on something hidden).
 
 ---
 
+## 18. Performance: hidden tabs stop polling and streaming (Nov 2 item, done Oct 29)
+
+- **What:** while a tab is hidden (minimised window, another tab in front):
+  - the status poll (2 s), the online check (8 s), Live's camera/log
+    poll (1.5 s) and state poll (2 s), Activity's 4 s poll and Logs' 1.5 s
+    tail all **skip**, and each runs **once straight away** when the tab
+    is shown again, so nothing looks stale;
+  - every camera video `<img>` (Overview tiles, Live main feed and
+    thumbnails) **drops its MJPEG stream** and reconnects when shown.
+    A tab opened in the background doesn't start streaming until it's
+    looked at.
+- **Why:** each viewer's video costs the laptop a JPEG encode per frame,
+  and every poll is a request to the laptop that's also running YOLO. Was:
+  plain `setInterval` and always-on streams, so a forgotten tab cost the
+  same as one being watched.
+- **How:** `caphyEvery(fn, ms)` in base.html's `<head>` (inline so the
+  pages' own inline scripts can use it) replaces those `setInterval`s.
+  `pauseFeeds()` in statuslight.js parks each feed's `src` in
+  `data-feed-src` and puts back a 1px blank, on the same visibilitychange
+  that already closes the alert stream. Left as is: History's own alert
+  stream (idle until an alert arrives, and it drives the "new alerts"
+  banner) and the Settings OTP countdown. `console.html` (the old /console
+  page) wasn't touched.
+- **Files:** `web/templates/base.html`, `web/static/statuslight.js`,
+  `web/server.py` (Live, Activity, Logs scripts)
+- **Tested (17/17):** headless Chrome can't really hide a tab, so the test
+  overrides `document.hidden` and fires `visibilitychange`. On Overview
+  and Live: hidden parks every feed, and the laptop's established
+  connections on :5000 drop **2 -> 0** (the video and the alert stream
+  really close). There are zero state/health/stats/logs/video requests
+  in 7.5 s hidden. When shown, each poll fires at once, the feeds
+  reconnect with the right src, and the connections come back. Activity
+  and Logs stop while hidden and fire at once when shown. Opened hidden:
+  parked until shown. No page errors. Re-ran the alert (18/18), Live
+  (11/11), keyboard (27/27) and swipe (20/20) tests. A real minimise is
+  checked in the pywebview window (next section).
+
+---
+
 ## Noticed, not changed
 
 - When the server is down, the top banner says "You're offline - CAPHY is

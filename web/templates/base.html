@@ -38,6 +38,18 @@
     @media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_ver }}">
+  <script>
+    // Polls that only matter while someone's looking: fn runs every ms while
+    // the tab is visible, skips while it's hidden (minimised window, another
+    // tab), and runs once straight away when it's shown again so nothing
+    // looks stale. Was: plain setInterval, so every idle tab kept hitting a
+    // laptop that's also running YOLO. Inline in <head> so the pages' own
+    // inline scripts can use it.
+    function caphyEvery(fn, ms){
+      setInterval(function(){ if(!document.hidden) fn(); }, ms);
+      document.addEventListener('visibilitychange', function(){ if(!document.hidden) fn(); });
+    }
+  </script>
   <script src="{{ url_for('static', filename='toast.js') }}?v={{ css_ver }}" defer></script>
   <script src="{{ url_for('static', filename='motion.js') }}?v={{ css_ver }}" defer></script>
 <script src="{{ url_for('static', filename='statuslight.js') }}?v={{ css_ver }}" defer></script>
@@ -320,7 +332,7 @@
       if(bar) bar.style.display = online ? 'none' : 'flex';
     }
     caphyCheckOnline();
-    setInterval(caphyCheckOnline, 8000);
+    caphyEvery(caphyCheckOnline, 8000);
     // the profile menu is hidden at load (clientWidth 0), so re-fit when opened
     (function(){var b=document.getElementById('profileBtn');
       if(b) b.addEventListener('click', function(){ setTimeout(fitAccountText, 0); });})();

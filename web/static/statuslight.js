@@ -155,7 +155,20 @@
   }
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) closeStream(); else openStream();
+    pauseFeeds(document.hidden);
   });
+
+  // Same idea for the camera video: each <img> on /video_feed/ is a
+  // never-ending MJPEG download, and the laptop encodes every frame for
+  // every viewer. A hidden tab drops its streams (src parked in
+  // data-feed-src) and reconnects when it's shown again.
+  const BLANK = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+  function pauseFeeds(hide) {
+    document.querySelectorAll(hide ? 'img[src*="/video_feed/"]' : "img[data-feed-src]").forEach(function (img) {
+      if (hide) { img.dataset.feedSrc = img.getAttribute("src"); img.src = BLANK; }
+      else { img.src = img.dataset.feedSrc; delete img.dataset.feedSrc; }
+    });
+  }
 
   function describe(st) {
     if (st.level === "offline") return "Can't reach CAPHY";
@@ -316,5 +329,7 @@
   window.caphyStatusPoll = poll;
   poll();
   if (!document.hidden) openStream();
-  setInterval(poll, 2000);
+  else pauseFeeds(true);        // opened in a background tab: don't stream until it's looked at
+  // only while visible (caphyEvery is in base.html's <head>)
+  if (window.caphyEvery) window.caphyEvery(poll, 2000); else setInterval(poll, 2000);
 })();

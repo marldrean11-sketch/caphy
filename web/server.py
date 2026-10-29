@@ -4106,8 +4106,8 @@ def live():
       else { clearTimeout(fsHideTimer); document.getElementById('fsexit').classList.remove('gone'); }
     });
 
-    setInterval(poll,1500); poll();
-    setInterval(refreshState,2000); refreshState();
+    poll(); caphyEvery(poll, 1500);
+    refreshState(); caphyEvery(refreshState, 2000);
     </script>
     <style>
       /* camera dots under the feed - only where the layout stacks (the
@@ -6818,7 +6818,7 @@ def activity():
         document.querySelectorAll('#actFilters .fpill').forEach(function(x){{ x.classList.toggle('active', x === b); }});
         group = b.dataset.group; lastId = 0; load();
       }});
-      load(); setInterval(poll, 4000);
+      load(); caphyEvery(poll, 4000);
     }})();
     </script>"""
     return page("Activity", "/activity", body,
@@ -6975,7 +6975,7 @@ def logs():
         box.innerHTML = html;
       }}catch(e){{}}
     }}
-    setInterval(tail,1500); tail();
+    caphyEvery(tail, 1500); tail();
     </script>
     <style>
       .ph{{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px}}
