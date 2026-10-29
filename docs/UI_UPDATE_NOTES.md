@@ -264,6 +264,29 @@ checks - no sideways scrolling allowed).
   snapshots, so the test gave 5 more rows View buttons in the browser only.
 - **Screenshot:** none committed - the only snapshots show a real person.
 
+## 13. Keyboard shortcuts (Oct 29)
+
+- **What (every page):** `A` arms; **hold** `A` for 1.2 s to disarm (the
+  arm buttons show the same fill as a mouse hold; let go early and a toast
+  says "Hold A for a second to disarm"; switching windows mid-hold
+  cancels). `/` jumps to the search box (Alert History). `Esc` now also
+  closes the account menu, clears toasts and leaves the search box (dialogs,
+  drawer and snapshot viewer already closed on Esc). `?` lists the
+  shortcuts in a toast. `aria-keyshortcuts` on the arm buttons and search.
+- **Why:** Oct 31 plan item. Disarm keeps the hold rule so a stray keypress
+  can never turn the system off. Shortcuts are ignored while typing in a
+  field, with Ctrl/Alt/Cmd, on key-repeat, while offline (A) and while a
+  dialog or the snapshot viewer is open, so they never fight page keys.
+- **Files:** `web/static/statuslight.js`, `web/templates/base.html` and
+  `web/server.py` (aria-keyshortcuts only)
+- **Tested:** A arms; tap A while armed = fill + hint, still armed; hold A
+  disarms with Undo; blur mid-hold = no disarm; A ignored with a dialog
+  open and in the snapshot viewer; Esc still closes the dialog; Ctrl+A
+  doesn't arm; ? toast; Esc closes menu + toasts; / does nothing without a
+  search box; / focuses Alert History search, typing "aaa" there doesn't
+  arm, Esc leaves it; no page errors. 17/17. Armed state restored.
+- **Screenshot:** `docs/screenshots/13-shortcuts-help.png`
+
 ---
 
 ## Noticed, not changed

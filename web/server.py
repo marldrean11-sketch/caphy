@@ -3675,7 +3675,7 @@ def live():
           <!-- .hold + data-act="arm": statuslight.js arms on a click and only
                disarms on a 1.2 s hold (was: one-click toggleArm(), which
                disarmed on a single tap unlike the sidebar) -->
-          <button type="button" class="ctrlbtn primary hold" id="armBtn" data-act="arm"><span class="fill"></span>
+          <button type="button" class="ctrlbtn primary hold" id="armBtn" data-act="arm" aria-keyshortcuts="A"><span class="fill"></span>
             <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
             <span class="lbl" id="armLabel">Arm</span></button>
           <button class="ctrlbtn icon" onclick="snap()" title="Snapshot">
@@ -5943,7 +5943,7 @@ def history():
     <div class="panel toolbar">
       <form class="searchbox" method="get" onsubmit="return submitHistorySearch(this, event)">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
-        <input name="q" value="{q}" placeholder="Search by date, e.g. 2026-07-14">
+        <input name="q" value="{q}" aria-keyshortcuts="/" placeholder="Search by date, e.g. 2026-07-14">
         <input type="hidden" name="tier" value="{tier}">
         <input type="hidden" name="range" value="{rng}">
       </form>

@@ -154,7 +154,7 @@
     <div class="sidefoot">
       <div class="st"><span class="dot armed"></span>
         <span class="lvl-txt" id="lvlTxt">{{ level_label }}</span><small id="sideCams">{{ cam }}</small></div>
-      <button type="button" class="hold sidearm{{ ' armed' if armed else '' }}" id="sideArmBtn" data-act="arm"><span class="fill"></span><span class="lbl">{{ 'Hold to disarm' if armed else 'Arm system' }}</span></button>
+      <button type="button" class="hold sidearm{{ ' armed' if armed else '' }}" id="sideArmBtn" data-act="arm" aria-keyshortcuts="A"><span class="fill"></span><span class="lbl">{{ 'Hold to disarm' if armed else 'Arm system' }}</span></button>
       <div class="fr">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
         <span class="frname" title="{{ user }}">{{ user }}</span> &middot; Homeowner &nbsp;<a href="/logout" style="color:var(--teal2)">Log out</a></div>

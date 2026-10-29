@@ -212,6 +212,69 @@
     document.addEventListener(ev, cancel, true);
   });
 
+  // ---- keyboard shortcuts (every page) ----
+  //   A    arm; HOLD A for 1.2 s to disarm - same rule as the buttons, so a
+  //        stray keypress can never turn the system off
+  //   /    jump to the page's search box (Alert History)
+  //   Esc  also closes the account menu, clears toasts and leaves the search
+  //        box (dialogs, the drawer and the snapshot viewer already close)
+  //   ?    list these in a toast
+  // Ignored while typing in a field, with Ctrl/Alt/Cmd, or while a dialog
+  // is open, so they never fight the page's own keys.
+  let keyHoldTimer = 0;
+  function typing(t) {
+    return !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  }
+  function dialogOpen() {
+    return !!document.querySelector("#appModal.show, #logoModal.open, .snapmodal.show");
+  }
+  function armButtons() { return document.querySelectorAll('.hold[data-act="arm"]'); }
+  function endKeyHold() {
+    if (!keyHoldTimer) return false;
+    clearTimeout(keyHoldTimer); keyHoldTimer = 0;
+    armButtons().forEach(function (b) { b.classList.remove("holding"); });
+    return true;
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Escape") {
+      const menu = document.getElementById("profileMenu");
+      if (menu) menu.classList.remove("show");
+      document.querySelectorAll(".ctoast .x").forEach(function (x) { x.click(); });
+      if (typing(e.target)) e.target.blur();
+      return;
+    }
+    if (typing(e.target) || dialogOpen() || e.repeat) return;
+    const k = e.key.toLowerCase();
+    if (k === "a") {
+      if (root.dataset.level === "offline") return;
+      e.preventDefault();
+      if (root.dataset.armed !== "true") { post("/api/arm", { on: true }); return; }
+      armButtons().forEach(function (b) { b.classList.add("holding"); });
+      keyHoldTimer = setTimeout(function () {
+        keyHoldTimer = 0;
+        armButtons().forEach(function (b) { b.classList.remove("holding"); });
+        actions.disarm();
+      }, HOLD_MS);
+    } else if (e.key === "/") {
+      const box = [...document.querySelectorAll('.searchbox input, input[type="search"]')]
+        .find(function (i) { return i.offsetParent !== null; });
+      if (box) { e.preventDefault(); box.focus(); box.select(); }
+    } else if (e.key === "?") {
+      if (window.caphyToast) window.caphyToast({
+        text: "Keyboard shortcuts", ms: 8000,
+        sub: "A arm · hold A to disarm · / search · Esc close · ← → snapshots"
+      });
+    }
+  });
+  document.addEventListener("keyup", function (e) {
+    if (e.key.toLowerCase() !== "a") return;
+    // let go too early: say how, instead of silently doing nothing
+    if (endKeyHold() && window.caphyToast) window.caphyToast({ text: "Still armed.", sub: "Hold A for a second to disarm." });
+  });
+  // switching windows mid-hold must not leave a disarm pending
+  window.addEventListener("blur", endKeyHold);
+
   // "Turn on" on a Camera off overlay
   function resumeCam(idx) { return post("/api/camera/" + idx + "/resume"); }
   window.caphyResumeCam = resumeCam;
