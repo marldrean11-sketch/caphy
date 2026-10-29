@@ -5871,7 +5871,10 @@ def history():
             view_url = "/snapshot/%s" % os.path.basename(snap)
             title = _html.escape(f"{event} · {cam} · {ts}", quote=True)
             thumb = "<img class='av thumb' src='%s'>" % view_url
-            view_btn = (f"<button class='viewbtn' onclick=\"event.stopPropagation(); openSnap('{view_url}','{title}')\">View</button>")
+            # data-snap/data-title let the viewer step through every visible
+            # snapshot on the page with arrow keys / swipe (openSnap below)
+            view_btn = (f"<button class='viewbtn' data-snap='{view_url}' data-title='{title}' "
+                        f"onclick=\"event.stopPropagation(); openSnap('{view_url}','{title}')\">View</button>")
         else:
             thumb = ("<div class='av'><svg viewBox='0 0 24 24'><circle cx='12' cy='8' r='4'/>"
                      "<path d='M4 21v-1a6 6 0 0 1 12 0v1'/></svg></div>")
@@ -5971,9 +5974,9 @@ def history():
     </div>
     </div>
 
-    <div class="snapmodal" id="snapModal">
+    <div class="snapmodal" id="snapModal" role="dialog" aria-modal="true" aria-labelledby="snapTitle">
       <div class="snapbar">
-        <div class="snaptitle" id="snapTitle"></div>
+        <div class="snaptitle"><span id="snapTitle"></span> <span class="snapcount" id="snapCount"></span></div>
         <div class="snapctrls">
           <button class="snapbtn" onclick="snapZoom(-1)">&minus;</button>
           <button class="snapbtn snappct" id="snapPct" onclick="snapZoomReset()">100%</button>
@@ -5982,9 +5985,11 @@ def history():
         </div>
       </div>
       <div class="snapstage" id="snapStage">
-        <img id="snapImg" src="" draggable="false">
+        <img id="snapImg" src="" alt="" draggable="false">
+        <button type="button" class="snapnav prev" id="snapPrev" onclick="snapStep(-1)" aria-label="Previous snapshot">&#8249;</button>
+        <button type="button" class="snapnav next" id="snapNext" onclick="snapStep(1)" aria-label="Next snapshot">&#8250;</button>
       </div>
-      <div class="snaphint">Scroll to zoom &bull; Drag to move &bull; Press Esc to close</div>
+      <div class="snaphint">&larr; &rarr; or swipe for the next snapshot &bull; Scroll to zoom &bull; Drag to move &bull; Esc to close</div>
     </div>
 
     <script>
@@ -6273,10 +6278,38 @@ def history():
         'translate('+snapX+'px,'+snapY+'px) scale('+snapScale+')';
       document.getElementById('snapPct').textContent = Math.round(snapScale*100)+'%';
     }}
-    function openSnap(url, title){{
-      document.getElementById('snapImg').src = url;
-      document.getElementById('snapTitle').textContent = title;
+    // Step through snapshots: the list is every visible row's View button
+    // on this page/filter, top to bottom, rebuilt each time the viewer
+    // opens (rows can be filtered, deleted or swapped in meanwhile).
+    let snapList = [], snapIdx = 0, snapSwiped = false;
+    function snapShow(dir){{
+      const s = snapList[snapIdx], img = document.getElementById('snapImg');
+      img.src = s.url;
+      img.alt = s.title;
+      document.getElementById('snapTitle').textContent = s.title;
+      document.getElementById('snapCount').textContent = snapList.length > 1 ? (snapIdx + 1) + ' / ' + snapList.length : '';
+      document.getElementById('snapPrev').hidden = snapIdx === 0;
+      document.getElementById('snapNext').hidden = snapIdx >= snapList.length - 1;
       snapScale = 1; snapX = 0; snapY = 0; snapApply();
+      // the new image slides in from the side it came from (220 ms)
+      if(dir && img.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+        img.animate([{{opacity: 0, transform: 'translateX(' + (dir * 24) + 'px)'}}, {{opacity: 1, transform: 'none'}}],
+                    {{duration: 220, easing: 'cubic-bezier(.2,.7,.2,1)'}});
+      // warm the cache for the neighbours so stepping is instant
+      [snapIdx - 1, snapIdx + 1].forEach(function(i){{ if(snapList[i]) (new Image()).src = snapList[i].url; }});
+    }}
+    function snapStep(dir){{
+      const i = snapIdx + dir;
+      if(i < 0 || i >= snapList.length) return;
+      snapIdx = i; snapShow(dir);
+    }}
+    function openSnap(url, title){{
+      snapList = [...document.querySelectorAll('#histTable .viewbtn[data-snap]')]
+        .filter(function(b){{ return b.offsetParent !== null; }})
+        .map(function(b){{ return {{url: b.dataset.snap, title: b.dataset.title}}; }});
+      snapIdx = snapList.findIndex(function(s){{ return s.url === url; }});
+      if(snapIdx < 0){{ snapList = [{{url: url, title: title}}]; snapIdx = 0; }}
+      snapShow(0);
       document.getElementById('snapModal').classList.add('show');
       document.body.style.overflow = 'hidden';
     }}
@@ -6284,6 +6317,31 @@ def history():
       document.getElementById('snapModal').classList.remove('show');
       document.body.style.overflow = '';
     }}
+    document.addEventListener('keydown', function(e){{
+      if(!document.getElementById('snapModal').classList.contains('show')) return;
+      if(e.key === 'ArrowLeft'){{ e.preventDefault(); snapStep(-1); }}
+      if(e.key === 'ArrowRight'){{ e.preventDefault(); snapStep(1); }}
+    }});
+    // swipe (touch, pen or mouse) when not zoomed in - zoomed, a drag pans
+    (function(){{
+      const stage = document.getElementById('snapStage');
+      let sx = null, sy = 0;
+      stage.addEventListener('pointerdown', function(e){{
+        snapSwiped = false;
+        if(snapScale !== 1 || e.target.closest('.snapnav')) return;
+        sx = e.clientX; sy = e.clientY;
+      }});
+      stage.addEventListener('pointerup', function(e){{
+        if(sx === null) return;
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        sx = null;
+        if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5){{
+          snapSwiped = true;               // don't let the click that follows close the viewer
+          snapStep(dx < 0 ? 1 : -1);
+        }}
+      }});
+      stage.addEventListener('pointercancel', function(){{ sx = null; }});
+    }})();
     function snapZoom(dir){{
       snapScale = Math.min(6, Math.max(1, snapScale + dir*0.25));
       if(snapScale === 1){{ snapX = 0; snapY = 0; }}
@@ -6308,6 +6366,7 @@ def history():
     }});
     window.addEventListener('mouseup', function(){{ snapDragging = false; }});
     document.getElementById('snapModal').addEventListener('click', function(e){{
+      if(snapSwiped){{ snapSwiped = false; return; }}
       if(e.target.id === 'snapModal' || e.target.id === 'snapStage') closeSnap();
     }});
 
@@ -6429,6 +6488,22 @@ def history():
       #snapImg{{max-width:90%;max-height:82vh;border-radius:6px;
         box-shadow:0 20px 60px rgba(0,0,0,.5);transition:transform .05s linear;user-select:none}}
       .snaphint{{text-align:center;padding:16px;color:var(--muted);font-size:12.5px;flex-shrink:0}}
+      /* step between snapshots: "3 / 12" + side buttons (white-on-ink, an
+         action); touch-action:none so a swipe isn't taken as a page scroll */
+      .snapcount{{font:500 12px var(--mono);color:var(--muted);margin-left:8px}}
+      .snapstage{{touch-action:none}}
+      .snapnav{{position:absolute;top:50%;width:44px;height:64px;margin-top:-32px;border-radius:10px;
+        background:var(--s2);border:1px solid var(--line2);color:var(--text);font-size:30px;line-height:1;
+        cursor:pointer;opacity:.8;transition:opacity .15s}}
+      .snapnav:hover,.snapnav:focus-visible{{opacity:1;border-color:var(--text)}}
+      .snapnav.prev{{left:16px}} .snapnav.next{{right:16px}}
+      .snapnav[hidden]{{display:none}}
+      @media (max-width:600px){{
+        .snapbar{{padding:12px 14px;flex-wrap:wrap;gap:8px}}
+        .snapnav{{width:36px;height:52px;margin-top:-26px;font-size:24px}}
+        .snapnav.prev{{left:6px}} .snapnav.next{{right:6px}}
+        .snaphint{{font-size:11.5px;padding:10px}}
+      }}
     </style>"""
     return page("Alert History", "/history", body,
                 subtitle=f'<div>{total:,} Confirmed Alerts</div><div>View and manage previous alerts</div>')

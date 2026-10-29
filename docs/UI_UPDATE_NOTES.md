@@ -240,6 +240,30 @@ checks - no sideways scrolling allowed).
   and new page still both animate); `.content` has no name at rest; the
   viewer's zoom button is the top element at its own position.
 
+## 12. Alert History: step through snapshots (Oct 29)
+
+- **What:** the existing snapshot viewer (zoom, pan, Esc) can now move to
+  the next/previous snapshot: <- / -> keys, a swipe (touch or mouse drag)
+  when not zoomed in, or the side buttons. "3 / 12" next to the title.
+  The list is every visible row with a snapshot on the current page and
+  filter, top to bottom; it stops at the ends. The new image slides 24px
+  and fades in (220 ms), neighbours are preloaded. Zoomed in, a drag still
+  pans. Dialog role, labels and image alt added.
+- **Why:** plan item (Oct 31, "snapshot lightbox with arrow keys / swipe").
+  The viewer already existed, so this extends it instead of adding a
+  second one.
+- **Files:** `web/server.py` (`history()`: data-snap/data-title on View
+  buttons, viewer markup, script, styles)
+- **Tested:** opens on the clicked one ("1 / n", no Prev); -> / <- step
+  with new image + title and the slide-in; stops at both ends; Prev button;
+  swipe left/right step and keep the viewer open; a mostly vertical drag
+  doesn't step; zoomed, a drag pans; a plain backdrop click and Esc still
+  close; keys do nothing while closed; rows hidden by the tier filter are
+  skipped; reduced motion = no slide; 390px buttons on screen, no
+  sideways scroll; no page errors. 22/22. Page 1 only had 2 real
+  snapshots, so the test gave 5 more rows View buttons in the browser only.
+- **Screenshot:** none committed - the only snapshots show a real person.
+
 ---
 
 ## Noticed, not changed
