@@ -235,6 +235,10 @@
   function dialogOpen() {
     return !!document.querySelector("#appModal.show, #logoModal.open, .snapmodal.show");
   }
+  // pages with their own keys (Live's arrow keys) use the same rules
+  window.caphyKeysFree = function (e) {
+    return !(e.ctrlKey || e.metaKey || e.altKey || e.repeat || typing(e.target) || dialogOpen());
+  };
   function armButtons() { return document.querySelectorAll('.hold[data-act="arm"]'); }
   function endKeyHold() {
     if (!keyHoldTimer) return false;
@@ -270,7 +274,7 @@
     } else if (e.key === "?") {
       if (window.caphyToast) window.caphyToast({
         text: "Keyboard shortcuts", ms: 8000,
-        sub: "A arm · hold A to disarm · / search · Esc close · ← → snapshots"
+        sub: "A arm · hold A to disarm · / search · Esc close · ← → snapshots or cameras"
       });
     }
   });

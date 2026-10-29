@@ -3620,7 +3620,7 @@ def live():
     body = """
     <div class="livewrap">
       <div class="panel maincam">
-        <div class="ph"><h2 id="mainName">__MAIN_NAME__</h2><span class="pill p3 rec" id="mainRec" data-rec-cam="__MAIN_IDX__">&#9679; REC</span></div>
+        <div class="ph"><h2 id="mainName" aria-live="polite">__MAIN_NAME__</h2><span class="pill p3 rec" id="mainRec" data-rec-cam="__MAIN_IDX__">&#9679; REC</span></div>
         <div class="feedwrap live" id="mainwrap">
           <img class="feed" id="mainFeed" src="/video_feed/__MAIN_ID__">
           <!-- Covers the <img> above until the selected camera has actually
@@ -3658,6 +3658,8 @@ def live():
           <!-- fullscreen: just the video. Only an Exit button, which auto-hides. -->
           <button class="fsexit" id="fsexit" onclick="fsMain()">&#10005;&nbsp;Exit</button>
         </div>
+        <!-- one dot per camera; filled in by syncCamDots() when there's more than one -->
+        <div class="camdots" id="camDots" hidden></div>
 
         <div class="statebar" id="statebar">
           <span class="sb" id="sbArm">System &mdash;</span>
@@ -3787,7 +3789,88 @@ def live():
       // reflect this camera's open/closed state on the Close/Open Camera
       // button immediately, without waiting for the next poll() tick
       syncCamCloseBtn(!!(it && it.classList.contains('camclosed')));
+      syncCamDots();
     }
+
+    // ---- step through cameras: swipe the main feed, the dots, or <- -> ----
+    // Phones show one camera at a time with the Cameras list far below, so
+    // the feed itself is the switcher. Swipe is touch/pen only - on desktop
+    // a mouse drag on video means nothing and the list sits right beside
+    // it. The feed follows the finger (transform only) and the next camera
+    // slides in from the side it came from; at the first/last camera it
+    // gives a little and springs back instead of wrapping, so the dots stay
+    // in order.
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    const EASE = 'cubic-bezier(.2,.7,.2,1)';
+    function camIds(){
+      return [...document.querySelectorAll('.camitem')].map(function(e){ return +e.id.slice(2); });
+    }
+    function syncCamDots(){
+      const box = document.getElementById('camDots'), items = [...document.querySelectorAll('.camitem')];
+      box.hidden = items.length < 2;
+      if(box.hidden) return;
+      if(box.children.length !== items.length){
+        box.innerHTML = items.map(function(it){
+          const id = +it.id.slice(2), name = it.querySelector('.cn').textContent;
+          return '<button type="button" class="camdot" data-cam="' + id + '" aria-label="Show ' + name + '"></button>';
+        }).join('');
+        box.querySelectorAll('.camdot').forEach(function(d){
+          d.addEventListener('click', function(){
+            const ids = camIds(), dir = Math.sign(ids.indexOf(+d.dataset.cam) - ids.indexOf(sel));
+            if(dir) stepCam(dir, +d.dataset.cam);
+          });
+        });
+      }
+      box.querySelectorAll('.camdot').forEach(function(d){
+        d.setAttribute('aria-current', +d.dataset.cam === sel ? 'true' : 'false');
+      });
+    }
+    // dir is only the slide direction; `to` jumps straight to a camera (dots)
+    function stepCam(dir, to){
+      const ids = camIds(), j = to !== undefined ? ids.indexOf(to) : ids.indexOf(sel) + dir;
+      if(j < 0 || j >= ids.length || ids[j] === sel) return false;
+      selectCam(ids[j]);
+      if(!reduceMotion.matches) document.getElementById('mainFeed').animate(
+        [{transform: 'translateX(' + (dir * 48) + 'px)', opacity: 0}, {transform: 'none', opacity: 1}],
+        {duration: 280, easing: EASE});
+      return true;
+    }
+    (function(){
+      const wrap = document.getElementById('mainwrap'), feed = document.getElementById('mainFeed');
+      let sx = null, sy = 0, dx = 0, shown = 0, horiz = false;
+      wrap.addEventListener('pointerdown', function(e){
+        if(e.pointerType === 'mouse' || camIds().length < 2 || e.target.closest('button')) return;
+        sx = e.clientX; sy = e.clientY; dx = 0; shown = 0; horiz = false;
+      });
+      wrap.addEventListener('pointermove', function(e){
+        if(sx === null) return;
+        dx = e.clientX - sx;
+        // decide once: sideways is a swipe, mostly-vertical is the page scrolling
+        if(!horiz && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(e.clientY - sy)) horiz = true;
+        if(!horiz) return;
+        const ids = camIds(), i = ids.indexOf(sel);
+        const edge = (dx > 0 && i === 0) || (dx < 0 && i === ids.length - 1);
+        shown = edge ? dx * 0.25 : dx;
+        feed.style.transform = 'translateX(' + shown + 'px)';
+      });
+      function end(){
+        if(sx === null) return;
+        sx = null;
+        feed.style.transform = '';
+        if(horiz && Math.abs(dx) > 50 && stepCam(dx < 0 ? 1 : -1)) return;
+        if(shown && !reduceMotion.matches) feed.animate(
+          [{transform: 'translateX(' + shown + 'px)'}, {transform: 'none'}], {duration: 200, easing: EASE});
+      }
+      wrap.addEventListener('pointerup', end);
+      wrap.addEventListener('pointercancel', function(){ dx = 0; end(); });
+    })();
+    document.addEventListener('keydown', function(e){
+      if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if(!window.caphyKeysFree || !window.caphyKeysFree(e)) return;
+      if(stepCam(e.key === 'ArrowRight' ? 1 : -1)) e.preventDefault();
+    });
+    syncCamDots();
+
     function fsMain(){
       const el = document.getElementById('mainwrap');
       if(document.fullscreenElement){ document.exitFullscreen(); }
@@ -4026,6 +4109,20 @@ def live():
     setInterval(refreshState,2000); refreshState();
     </script>
     <style>
+      /* camera dots under the feed - only where the layout stacks (the
+         Cameras list is beside the feed above 1000px). 32px tap targets;
+         the active dot is white, not a status colour (it isn't a status). */
+      .camdots{display:none}
+      @media (max-width:1000px){.camdots:not([hidden]){display:flex;justify-content:center;margin-top:6px}}
+      .camdot{width:32px;height:28px;padding:0;border:0;background:none;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+      .camdot::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--text);opacity:.3;
+        transition:opacity .2s,transform .2s}
+      .camdot[aria-current="true"]::before{opacity:1;transform:scale(1.3)}
+      .camdot:focus-visible{outline:2px solid var(--text);outline-offset:-2px;border-radius:8px}
+      /* sideways drags belong to the camera swipe; vertical scroll and
+         pinch-zoom stay with the browser */
+      #mainwrap{touch-action:pan-y pinch-zoom}
       .statebar{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
       .statebar .sb{font-size:11px;letter-spacing:.4px;padding:5px 11px;border-radius:20px;
         border:1px solid var(--line);color:var(--dim);background:var(--panel);font-weight:600}

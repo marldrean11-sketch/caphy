@@ -340,6 +340,46 @@ checks - no sideways scrolling allowed).
 
 ---
 
+## 16. Live: swipe between cameras (Nov 1 item, done Oct 29)
+
+- **What:** on Live, swipe the main feed sideways to go to the next or
+  previous camera. The feed follows your finger, and the new camera slides
+  in from the side it came from (transform/opacity, 280 ms). At the first
+  or last camera the feed moves only a little and springs back; it doesn't
+  wrap around. Dots under the feed (1000px and narrower, only when there
+  is more than one camera) show which camera you're on, and tapping a dot
+  jumps to that camera. ← → do the same on any width. The camera name is
+  read out when it changes (`aria-live`).
+- **Why:** on a phone the Cameras list is far below the feed. Swiping
+  goes through the same `selectCam()` as the list, so REC, the Close/Open
+  button and the loading overlay all follow.
+- **Limits:** touch/pen only (a mouse drag does nothing). Short drags
+  (under 50px), mostly-vertical drags and drags that start on a button are
+  ignored. Vertical scroll and pinch-zoom stay with the browser
+  (`touch-action:pan-y pinch-zoom`). Arrow keys follow the same rules as
+  the other shortcuts (not while typing, with Ctrl/Alt/Cmd, or with a
+  dialog open), via a new `caphyKeysFree(e)` in statuslight.js. The `?`
+  help now says "← → snapshots or cameras". With reduced motion it still
+  switches, with no slide.
+- **Files:** `web/server.py` (`live()`: dots markup, the swipe / dots /
+  arrow-key script, styles), `web/static/statuslight.js` (`caphyKeysFree`,
+  help text)
+- **Tested:** this laptop has one camera, so two stand-in cameras were
+  added to the page in the test (their feeds are a blank image, which is
+  why the screenshot says "Camera Loading..."). One camera: no dots, and a
+  swipe does nothing. Three cameras at 390px: three dots, no sideways
+  scroll. The feed follows the finger. Swiping left or right switches, and
+  the name and dot follow. At either end there is no wrap and the feed
+  springs back. A 30px drag and a vertical drag don't switch. Tapping a
+  dot jumps to it. At 1440px the dots are hidden and the arrow keys work,
+  but not while a dialog is open. A mouse drag doesn't switch. The slide
+  runs for 280 ms, and doesn't run with reduced motion. `?` mentions
+  cameras. No page errors. 20/20. **Not tested with two real cameras**;
+  worth a quick check on a machine that has them.
+- **Screenshot:** `docs/screenshots/16-live-camera-dots-390.png`
+
+---
+
 ## Noticed, not changed
 
 - When the server is down, the top banner says "You're offline - CAPHY is
