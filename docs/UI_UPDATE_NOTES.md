@@ -150,6 +150,27 @@ checks - no sideways scrolling allowed).
 - **Screenshot:** `docs/screenshots/07-page-transition-mid.png` (120 ms in:
   sidebar/header already on the new page, old body fading behind the new)
 
+## 8. Count-up numbers (Oct 29)
+
+- **What:** new `web/static/motion.js`. Any element with `data-count`
+  counts up from 0 once as the page loads (600 ms, ease-out). Used on
+  Overview's "alerts today", "alerts in total" and "waiting to sync"
+  (not the camera count - that's live status). A new alert now ticks
+  those up (300 ms) instead of jumping; `data-count` holds the real
+  target, so an alert arriving mid-count-up still ends exactly +1.
+- **Why:** approved preview item 5. The server still renders the real
+  number, so without JS (or with reduced motion, or in a hidden tab) it's
+  simply the right value straight away.
+- **Files:** `web/static/motion.js` (new; also has `caphyStagger`, used by
+  the next change), `web/templates/base.html` (loads it), `web/server.py`
+  (`data-count` on the stat row, tick in the `caphy:alert` listener,
+  `_css_version()` hashes motion.js)
+- **Tested:** counts through ~20 in-between values, never goes down, lands
+  on the server value ~470 ms after DOMContentLoaded (ease-out rounds to
+  the final number before 600 ms); alert mid-count-up ends +1; reduced
+  motion shows the real value from the first frame; no page errors.
+  Alert-toast tests re-run: 18/18.
+
 ---
 
 ## Noticed, not changed

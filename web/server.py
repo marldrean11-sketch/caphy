@@ -2317,11 +2317,11 @@ NAV = [("/", "Overview"), ("/live", "Live Camera"),
 # even after a normal refresh. Appending ?v=<hash> to the <link> URL forces
 # the browser to fetch a fresh copy any time this file's contents change.
 def _css_version():
-    # covers statuslight.js and toast.js too, since base.html versions them
-    # with the same hash
+    # covers statuslight.js, toast.js and motion.js too, since base.html
+    # versions them with the same hash
     try:
         h = hashlib.md5()
-        for name in ("style.css", "statuslight.js", "toast.js"):
+        for name in ("style.css", "statuslight.js", "toast.js", "motion.js"):
             with open(os.path.join(app.static_folder, name), "rb") as f:
                 h.update(f.read())
         return h.hexdigest()[:10]
@@ -3412,10 +3412,10 @@ def dashboard():
       <div class="scale"><span>10 m</span><span>{config.TIER1_MIN_DIST:g} m</span><span>{config.TIER3_MAX_DIST:g} m</span><span>camera</span></div>
     </div>
     <div class="statrow">
-      <div><b id="hToday">{today}</b><span>alerts today</span></div>
-      <div><b id="hTotal">{total}</b><span>alerts in total</span></div>
+      <div><b id="hToday" data-count="{today}">{today}</b><span>alerts today</span></div>
+      <div><b id="hTotal" data-count="{total}">{total}</b><span>alerts in total</span></div>
       <div><b id="hCams">{online} / {ncam}</b><span>cameras online</span></div>
-      <div><b>{pending}</b><span>waiting to sync</span></div>
+      <div><b data-count="{pending}">{pending}</b><span>waiting to sync</span></div>
     </div>
     <script>
     (function(){{
@@ -3474,9 +3474,14 @@ def dashboard():
           while(list.children.length>5) list.lastElementChild.remove();
         }};
         if(window.caphyFlip) window.caphyFlip(rows, add); else add();
+        // +1 as a quick tick (static/motion.js); data-count holds the real
+        // target so a tick that lands mid-count-up still ends on the right number
         ['hToday','hTotal'].forEach(function(id){{
           const b=document.getElementById(id);
-          if(b) b.textContent=(parseInt(b.textContent,10)||0)+1;
+          if(!b) return;
+          b.dataset.count=(parseInt(b.dataset.count,10)||0)+1;
+          if(window.caphyCountTo) window.caphyCountTo(b, b.dataset.count, 300);
+          else b.textContent=b.dataset.count;
         }});
       }});
     }})();
