@@ -7,6 +7,10 @@
 @font-face{font-family:"IBM Plex Mono";font-weight:500;font-display:swap;src:url(fonts/IBMPlexMono-Medium.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-weight:600 800;font-display:swap;src:url(fonts/IBMPlexMono-SemiBold.woff2) format("woff2")}
 :root{
+  /* the browser's own parts (scrollbars, <select> lists, checkboxes) are
+     drawn dark too. Was: the light default scrollbar down the side of the
+     desktop window and every long page. */
+  color-scheme:dark;
   /* CAPHY brand: flat ink surfaces + 1px lines. The logo is the status
      light, so the four status colours below mean status ONLY:
        violet = clear, yellow = watching (Tier 1-2 / camera down),

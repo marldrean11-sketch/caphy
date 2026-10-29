@@ -522,6 +522,21 @@ focus landing on something hidden).
 
 ---
 
+## 20. Dark scrollbars and form controls (`color-scheme:dark`) (Oct 29)
+
+- **What:** `color-scheme:dark` on `:root`, so the browser's own parts
+  (scrollbars, `<select>` lists, native checkboxes and pickers) draw dark.
+- **Why:** found in the desktop window test. A light-grey Windows
+  scrollbar ran down the side of the dark console, and in any browser on
+  long pages.
+- **Files:** `web/static/style.css`
+- **Tested:** the desktop window again (19/19): the scrollbar is now a
+  dark track with a grey thumb. The login page looks unchanged (its
+  inputs keep their own colours), `color-scheme` computes to `dark`, and
+  there are no page errors.
+
+---
+
 ## Noticed, not changed
 
 - When the server is down, the top banner says "You're offline - CAPHY is
