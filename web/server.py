@@ -3497,7 +3497,7 @@ def dashboard():
             rec = " show" if w.is_recording() else ""
             off = " show" if w.paused else ""
             tiles += (f'<div class="feedtile"><div class="feedwrap">'
-                      f'<img class="feed" src="/video_feed/{w.cam_id}">'
+                      f'<img class="feed" src="/video_feed/{w.cam_id}" alt="{w.name} live view">'
                       f'<span class="pill p3 rec{rec}" data-rec-cam="{i}">&#9679; REC</span>'
                       f'<div class="camoff{off}" data-off-cam="{i}"><b>Camera off</b>'
                       f'<span>CAPHY isn\'t watching here</span>'
@@ -3595,7 +3595,7 @@ def live():
         cam_items += (
             f'<div class="camitem{active}{" camclosed" if closed else ""}" id="ci{w.cam_id}" onclick="selectCam({w.cam_id})">'
             f'<div class="camthumbwrap">'
-            f'<img class="camthumb" src="/video_feed/{w.cam_id}">'
+            f'<img class="camthumb" src="/video_feed/{w.cam_id}" alt="">'
             f'<button class="camthumbfs" onclick="event.stopPropagation();camThumbFs({w.cam_id})" title="Fullscreen">'
             f'<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
             f'</button></div>'
@@ -3622,7 +3622,7 @@ def live():
       <div class="panel maincam">
         <div class="ph"><h2 id="mainName" aria-live="polite">__MAIN_NAME__</h2><span class="pill p3 rec" id="mainRec" data-rec-cam="__MAIN_IDX__">&#9679; REC</span></div>
         <div class="feedwrap live" id="mainwrap">
-          <img class="feed" id="mainFeed" src="/video_feed/__MAIN_ID__">
+          <img class="feed" id="mainFeed" src="/video_feed/__MAIN_ID__" alt="__MAIN_NAME__ live view">
           <!-- Covers the <img> above until the selected camera has actually
                produced a real frame (per /api/stats' `online` flag - the
                same signal System Health already uses). Without this, a
@@ -3781,6 +3781,7 @@ def live():
       showCamLoading();
       document.getElementById('mainFeed').src = '/video_feed/'+id;
       document.getElementById('mainName').textContent = document.querySelector('#ci'+id+' .cn').textContent;
+      document.getElementById('mainFeed').alt = document.getElementById('mainName').textContent + ' live view';
       // REC badge follows whichever camera is now the main view
       var mr = document.getElementById('mainRec'), idx = Array.prototype.indexOf.call(document.querySelectorAll('.camitem'), document.getElementById('ci'+id));
       if (mr && idx >= 0) { mr.dataset.recCam = idx; if (window.caphyStatusPoll) window.caphyStatusPoll(); }
@@ -5967,7 +5968,8 @@ def history():
         if snap:
             view_url = "/snapshot/%s" % os.path.basename(snap)
             title = _html.escape(f"{event} · {cam} · {ts}", quote=True)
-            thumb = "<img class='av thumb' src='%s'>" % view_url
+            # alt="" - the event text beside it says what it is, and View opens it
+            thumb = "<img class='av thumb' src='%s' alt=''>" % view_url
             # data-snap/data-title let the viewer step through every visible
             # snapshot on the page with arrow keys / swipe (openSnap below)
             view_btn = (f"<button class='viewbtn' data-snap='{view_url}' data-title='{title}' "
@@ -6040,7 +6042,7 @@ def history():
     <div class="panel toolbar">
       <form class="searchbox" method="get" onsubmit="return submitHistorySearch(this, event)">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
-        <input name="q" value="{q}" aria-keyshortcuts="/" placeholder="Search by date, e.g. 2026-07-14">
+        <input name="q" value="{q}" aria-keyshortcuts="/" aria-label="Search alerts by date" placeholder="Search by date, e.g. 2026-07-14">
         <input type="hidden" name="tier" value="{tier}">
         <input type="hidden" name="range" value="{rng}">
       </form>
@@ -7003,8 +7005,10 @@ SETTINGS_TABS = [("detection", "Detection"), ("cameras", "Cameras"), ("alerts", 
                  ("offline", "Offline Mode"), ("users", "Users"), ("about", "About")]
 
 
-def _sw(name, on):
-    return (f'<label class="sw"><input type="checkbox" name="{name}" {"checked" if on else ""}>'
+def _sw(name, on, label=""):
+    """Toggle switch; label names it for screen readers (the row's bold text)."""
+    aria = f' aria-label="{label}"' if label else ""
+    return (f'<label class="sw"><input type="checkbox" name="{name}" {"checked" if on else ""}{aria}>'
             f'<span class="track"></span></label>')
 
 
@@ -7157,13 +7161,13 @@ def settings():
         <div class="field">
           <div class="flabel"><b>Motion Sensitivity (Factor 1)</b><span class="val" id="motVal">{mot_pct}%</span></div>
           <div class="fdesc">Higher sensitivity detects smaller movements.</div>
-          <input type="range" id="mot" name="motion" min="0" max="100" value="{mot_pct}"
+          <input type="range" id="mot" name="motion" min="0" max="100" value="{mot_pct}" aria-label="Motion sensitivity, percent"
                  oninput="document.getElementById('motVal').textContent=this.value+'%'">
         </div>
         <div class="field">
           <div class="flabel"><b>Person Confidence (Factor 2)</b><span class="val" id="pcVal">{pconf:.2f}</span></div>
           <div class="fdesc">Minimum confidence needed to confirm a person.</div>
-          <input type="range" id="pc" name="person_conf" min="0.3" max="0.95" step="0.01" value="{pconf}"
+          <input type="range" id="pc" name="person_conf" min="0.3" max="0.95" step="0.01" value="{pconf}" aria-label="Person confidence"
                  oninput="document.getElementById('pcVal').textContent=(+this.value).toFixed(2)">
         </div>
         <div class="secheadsmall">THREE-TIER DISTANCE THRESHOLDS</div>
@@ -7185,16 +7189,16 @@ def settings():
         </div>
         <div class="tiercards">
           <div class="tiercard t1"><div class="tl">Tier 1 &middot; Far Away</div>
-            <div class="tv">&gt; <input class="tin" name="tier1" value="{t1}"> m</div><div class="tsub">Record event only</div></div>
+            <div class="tv">&gt; <input class="tin" name="tier1" value="{t1}" aria-label="Tier 1: farther than, metres"> m</div><div class="tsub">Record event only</div></div>
           <div class="tiercard t2"><div class="tl">Tier 2 &middot; Medium Distance</div>
             <div class="tv" id="t2Range">{t3}&ndash;{t1} m</div><div class="tsub">Take a snapshot and notify</div></div>
           <div class="tiercard t3"><div class="tl">Tier 3 &middot; Close Range</div>
-            <div class="tv">&lt; <input class="tin" name="tier3" value="{t3}"> m</div><div class="tsub">Record video, sound siren, and notify</div></div>
+            <div class="tv">&lt; <input class="tin" name="tier3" value="{t3}" aria-label="Tier 3: closer than, metres"> m</div><div class="tsub">Record video, sound siren, and notify</div></div>
         </div>
         <div class="togglerow"><div><b>Software Night Vision (CLAHE)</b>
-          <div class="fdesc" style="margin:2px 0 0">Brightens dark camera images automatically.</div></div>{_sw("night", night_on)}</div>
+          <div class="fdesc" style="margin:2px 0 0">Brightens dark camera images automatically.</div></div>{_sw("night", night_on, "Software night vision")}</div>
         <div class="togglerow"><div><b>Auto-Arm at Night</b>
-          <div class="fdesc" style="margin:2px 0 0">Automatically arm the system during selected hours.</div></div>{_sw("autoarm", auto_on)}</div>
+          <div class="fdesc" style="margin:2px 0 0">Automatically arm the system during selected hours.</div></div>{_sw("autoarm", auto_on, "Auto-arm at night")}</div>
         <div class="field" id="autoarmSettings" style="display:{'block' if auto_on else 'none'};padding:12px;background:var(--panel);border-radius:8px;margin-top:8px">
           <div class="flabel"><b>Auto-Arm Schedule</b></div>
           <div class="fdesc">System arms automatically at start time and disarms at end time. Pick any time you want.</div>
@@ -7230,7 +7234,7 @@ def settings():
     cam_inputs = "".join(
         f'<div class="field"><div class="flabel"><b>Camera {i}</b></div>'
         f'<div class="fdesc">Display name shown across the console &amp; saved with each alert</div>'
-        f'<input name="cam_name_{i}" value="{nm}" style="width:100%"></div>' for i, nm in cam_list)
+        f'<input name="cam_name_{i}" value="{nm}" aria-label="Camera {i} display name" style="width:100%"></div>' for i, nm in cam_list)
     sec_cameras = f"""
       <div class="sechead">Cameras</div><div class="subd">Select the cameras CAPHY will use.</div>
 
@@ -7244,12 +7248,12 @@ def settings():
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
         <div>
-          <label style="font-size:12px;color:var(--muted);font-weight:600">Camera 1</label>
-          <select id="camSlot0" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font-size:13px"></select>
+          <label for="camSlot0" style="font-size:12px;color:var(--muted);font-weight:600">Camera 1</label>
+          <select id="camSlot0" style="width:100%;margin-top:6px;padding:10px;border-radius:8px;background:var(--panel);color:var(--text);font-size:13px"></select>
         </div>
         <div>
-          <label style="font-size:12px;color:var(--muted);font-weight:600">Camera 2</label>
-          <select id="camSlot1" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font-size:13px"></select>
+          <label for="camSlot1" style="font-size:12px;color:var(--muted);font-weight:600">Camera 2</label>
+          <select id="camSlot1" style="width:100%;margin-top:6px;padding:10px;border-radius:8px;background:var(--panel);color:var(--text);font-size:13px"></select>
         </div>
       </div>
 
@@ -7422,7 +7426,7 @@ def settings():
         <div class="secheadsmall" style="margin-top:20px">Display Name</div>
         <div class="fdesc" style="margin-bottom:6px">Shown throughout CAPHY.</div>
         <div class="field">
-          <input type="text" name="display_name" value="{display_name}" placeholder="Your name" style="width:100%">{name_msg}</div>
+          <input type="text" name="display_name" value="{display_name}" placeholder="Your name" aria-label="Display name" style="width:100%">{name_msg}</div>
         <div class="setfoot"><button class="btn" name="action" value="save">Save Name</button></div>
       </form>
 
@@ -7430,10 +7434,10 @@ def settings():
         <div class="secheadsmall" style="margin-top:20px">Change Password</div>
         {google_prompt}
         <div class="field"><div class="flabel"><b>Current password</b></div>
-          <input type="password" id="cur_pw" style="width:100%"></div>
+          <input type="password" id="cur_pw" aria-label="Current password" autocomplete="current-password" style="width:100%"></div>
         <div class="field"><div class="flabel"><b>New Password</b></div>
           <div class="fdesc">Must contain at least 6 characters.</div>
-          <input type="password" id="new_pw" style="width:100%">{msg}</div>
+          <input type="password" id="new_pw" aria-label="New password" autocomplete="new-password" style="width:100%">{msg}</div>
         <div id="changePwErr" class="fdesc" style="color:var(--red);display:none;margin-top:6px"></div>
         <div class="setfoot"><button class="btn" type="submit" id="changePwBtn">Change Password</button></div>
       </form>

@@ -43,6 +43,11 @@
 <script src="{{ url_for('static', filename='statuslight.js') }}?v={{ css_ver }}" defer></script>
 </head>
 <body>
+<!-- keyboard users land here first: one Tab + Enter skips the 8 sidebar stops -->
+<a class="skiplink" href="#content">Skip to content</a>
+<!-- screen readers hear the status level change (statuslight.js); arming
+     and new alerts are already spoken by the toast stack -->
+<div class="sronly" id="statusSay" role="status" aria-live="polite"></div>
 <div class="app-titlebar" id="appTitlebar">
     <div class="atb-brand">
       <svg class="caphy-logo" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
@@ -166,7 +171,7 @@
       <span>Siren on</span><span class="mono" id="sirenMeta"></span>
       <button type="button" class="hold" data-act="silence"><span class="fill"></span><span class="lbl">Hold to silence</span></button>
     </div></div></div>
-    <div id="offlineBar" class="offlinebar" style="display:none">
+    <div id="offlineBar" class="offlinebar" role="status" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
       <div><b>You're offline</b> &mdash; CAPHY is running in Local Mode. Only devices on the same Wi&#8209;Fi as this laptop can connect right now.
         <a href="/settings?tab=offline">How to connect &rarr;</a></div>
@@ -178,14 +183,16 @@
       <div class="ht"><h1>{{ title }}</h1>{% if subtitle %}<div class="sub">{{ subtitle|safe }}</div>{% endif %}</div>
       <div class="hr">
         <span class="pill pg dotb" id="hdrCams">{{ ncam }} / {{ ntotal }} CAM</span>
-        <a class="iconbtn" href="/history" title="Alert History">
+        <a class="iconbtn" href="/history" title="Alert History" aria-label="Alert History{% if nalerts %}, {{ nalerts }} unread{% endif %}">
           {% if nalerts and nalerts > 0 %}<span class="badge">{{ nalerts if nalerts < 100 else '99+' }}</span>{% endif %}
           <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
         </a>
         <div class="profilewrap">
-          <div class="iconbtn" id="profileBtn" onclick="toggleProfile(event)" title="Account">
+          <!-- was a <div onclick>: no keyboard focus, no name for screen readers -->
+          <button type="button" class="iconbtn" id="profileBtn" onclick="toggleProfile(event)" title="Account"
+                  aria-label="Account" aria-haspopup="true" aria-expanded="false" aria-controls="profileMenu">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
-          </div>
+          </button>
           <div class="profilemenu" id="profileMenu">
             <div class="pmname">{{ user }}</div>
             <div class="pmrole">Homeowner</div>
@@ -195,7 +202,7 @@
         </div>
       </div>
     </div>
-    <div class="content">{{ body|safe }}</div>
+    <div class="content" id="content" tabindex="-1">{{ body|safe }}</div>
     <div id="pageEnd" hidden></div>
   </div>
 
@@ -221,12 +228,12 @@
   </nav>
 
   <div class="modalbg" id="appModal" onclick="if(event.target===this) closeModal(false)">
-    <div class="modalcard">
-      <div class="modalicon" id="modalIcon"></div>
+    <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalMsg">
+      <div class="modalicon" id="modalIcon" aria-hidden="true"></div>
       <div class="modaltitle" id="modalTitle"></div>
       <div class="modalmsg" id="modalMsg"></div>
       <div class="modalbtns">
-        <button class="btn ghost" onclick="closeModal(false)">Cancel</button>
+        <button class="btn ghost" id="modalCancelBtn" onclick="closeModal(false)">Cancel</button>
         <button class="btn" id="modalConfirmBtn">Confirm</button>
       </div>
     </div>
@@ -322,13 +329,24 @@
     (function(){
       var btn = document.getElementById('menuBtn'), scrim = document.getElementById('navScrim');
       var more = document.getElementById('tabMore');   // phone tab bar's "More" opens the same drawer
+      var opener = null;
       function setOpen(open){
+        var was = document.body.classList.contains('nav-open');
         document.body.classList.toggle('nav-open', open);
         if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (more) more.setAttribute('aria-expanded', open ? 'true' : 'false');
+        // keyboard: opening moves focus into the drawer, closing hands it
+        // back to the button that opened it (the closed drawer is
+        // visibility:hidden in style.css, so Tab no longer walks into it)
+        // (two frames later: measured in Chrome, the link only becomes
+        // focusable on the 2nd frame after visibility flips back)
+        if (open && !was) requestAnimationFrame(function(){ requestAnimationFrame(function(){
+          var a = document.querySelector('.side .nav a'); if (a && document.body.classList.contains('nav-open')) a.focus({preventScroll: true});
+        }); });
+        if (!open && was && opener && document.activeElement && document.activeElement.closest('.side')) opener.focus();
       }
-      if (btn) btn.addEventListener('click', function(){ setOpen(!document.body.classList.contains('nav-open')); });
-      if (more) more.addEventListener('click', function(){ setOpen(!document.body.classList.contains('nav-open')); });
+      if (btn) btn.addEventListener('click', function(){ opener = btn; setOpen(!document.body.classList.contains('nav-open')); });
+      if (more) more.addEventListener('click', function(){ opener = more; setOpen(!document.body.classList.contains('nav-open')); });
       if (scrim) scrim.addEventListener('click', function(){ setOpen(false); });
       document.querySelectorAll('.side .nav a').forEach(function(a){ a.addEventListener('click', function(){ setOpen(false); }); });
       document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setOpen(false); });
@@ -338,14 +356,18 @@
     // ---- header profile dropdown ----
     function toggleProfile(e){
       if(e) e.stopPropagation();
-      document.getElementById('profileMenu').classList.toggle('show');
+      const open = document.getElementById('profileMenu').classList.toggle('show');
+      document.getElementById('profileBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
     }
-    document.addEventListener('click', function(){
+    function closeProfile(){
       document.getElementById('profileMenu').classList.remove('show');
-    });
+      document.getElementById('profileBtn').setAttribute('aria-expanded', 'false');
+    }
+    document.addEventListener('click', closeProfile);
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeProfile(); });
 
     // ---- shared confirm modal (replaces browser confirm() everywhere) ----
-    let _modalResolve = null;
+    let _modalResolve = null, _modalReturn = null;
     function openModal(opts){
       opts = opts || {};
       const icon = document.getElementById('modalIcon');
@@ -357,13 +379,27 @@
       btn.textContent = opts.confirmText || 'Confirm';
       btn.className = 'btn' + (opts.danger === false ? '' : ' danger');
       btn.onclick = function(){ closeModal(true); };
+      // focus goes into the dialog and comes back to whatever opened it.
+      // A danger dialog starts on Cancel, so a stray Enter can't confirm it.
+      _modalReturn = document.activeElement;
       document.getElementById('appModal').classList.add('show');
+      document.getElementById(opts.danger === false ? 'modalConfirmBtn' : 'modalCancelBtn').focus();
       return new Promise(function(res){ _modalResolve = res; });
     }
     function closeModal(ok){
-      document.getElementById('appModal').classList.remove('show');
+      const m = document.getElementById('appModal'), wasOpen = m.classList.contains('show');
+      m.classList.remove('show');
       if(_modalResolve){ _modalResolve(!!ok); _modalResolve = null; }
+      if(wasOpen && _modalReturn && _modalReturn.focus) _modalReturn.focus();
+      _modalReturn = null;
     }
+    // Tab stays on the two buttons while the dialog is open
+    document.addEventListener('keydown', function(e){
+      if(e.key !== 'Tab' || !document.getElementById('appModal').classList.contains('show')) return;
+      const a = document.getElementById('modalCancelBtn'), b = document.getElementById('modalConfirmBtn');
+      e.preventDefault();
+      (document.activeElement === a ? b : a).focus();   // two buttons: Tab and Shift+Tab both swap
+    });
     document.addEventListener('keydown', function(e){
       if(e.key === 'Escape') closeModal(false);
     });

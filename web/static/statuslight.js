@@ -23,6 +23,7 @@
   // when THIS tab finished a disarm hold - only that tab gets Undo
   let disarmedHereAt = 0;
   const UNDO_WINDOW_MS = 10000;
+  let lastLevel = null;
 
   // "1 of 2 cameras watching · 1 off" - same wording as cams_text() in
   // server.py, so the sidebar, header and Overview never disagree
@@ -46,8 +47,14 @@
       lastArmed = armedNow;
     }
 
+    const said = describe(st);
     const txt = document.getElementById("lvlTxt");
-    if (txt) txt.textContent = describe(st);
+    if (txt) txt.textContent = said;
+    // spoken only when the LEVEL changes (not on every poll, and not for
+    // arm/disarm, which the toast already says); null = first poll, silent
+    const say = document.getElementById("statusSay");
+    if (say && lastLevel !== null && st.level !== lastLevel) say.textContent = "Status: " + said;
+    lastLevel = st.level;
     if (st.level !== "offline") {
       const sc = document.getElementById("sideCams");
       if (sc) sc.textContent = camText(st);
@@ -193,22 +200,38 @@
     silence: function () { return post("/api/siren/silence"); }
   };
 
-  document.addEventListener("pointerdown", function (e) {
-    const btn = e.target.closest(".hold");
-    if (!btn) return;
+  // returns false when nothing needs holding (arming is immediate)
+  function startHold(btn) {
     let act = btn.dataset.act;
     if (act === "arm") {
       // arming is never dangerous, so it's a normal click; only disarming holds
-      if (root.dataset.armed !== "true") { post("/api/arm", { on: true }); return; }
+      if (root.dataset.armed !== "true") { post("/api/arm", { on: true }); return false; }
       act = "disarm";
     }
     btn.classList.add("holding");
-    btn.addEventListener("pointerleave", cancel, { once: true });
     btn._holdTimer = setTimeout(function () {
       btn.classList.remove("holding");
       if (actions[act]) actions[act]();
     }, HOLD_MS);
+    return true;
+  }
+  document.addEventListener("pointerdown", function (e) {
+    const btn = e.target.closest(".hold");
+    if (btn && startHold(btn)) btn.addEventListener("pointerleave", cancel, { once: true });
   });
+  // Space / Enter on a focused hold button = pressing it: tap arms, holding
+  // the key 1.2 s disarms or silences. Was: pointer only, so with a
+  // keyboard the Arm buttons did nothing and the siren couldn't be
+  // silenced at all.
+  function holdKey(e) { return (e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest(".hold"); }
+  document.addEventListener("keydown", function (e) {
+    const btn = holdKey(e);
+    if (!btn) return;
+    e.preventDefault();            // no click, no page scroll
+    if (e.repeat || btn.classList.contains("holding")) return;
+    if (startHold(btn)) btn.addEventListener("blur", cancel, { once: true });
+  });
+  document.addEventListener("keyup", function (e) { if (holdKey(e)) cancel(); });
   function cancel() {
     document.querySelectorAll(".hold.holding").forEach(function (b) {
       b.classList.remove("holding");

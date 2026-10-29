@@ -380,6 +380,69 @@ checks - no sideways scrolling allowed).
 
 ---
 
+## 17. Accessibility pass (Nov 2 item, done Oct 29)
+
+Found with a keyboard + markup audit of all 6 pages and all 8 Settings tabs
+at 1440 and 390px (Tab through every stop; buttons/links without a name;
+images without alt; fields without a label; focus with no visible ring;
+focus landing on something hidden).
+
+- **Hold buttons now work from the keyboard.** Was: `.hold` only listened
+  for pointer presses, so with Enter/Space the Arm buttons did nothing and
+  **"Hold to silence" couldn't be used at all**. Now Space/Enter on a
+  focused hold button is the same as pressing it: a tap arms, holding the
+  key 1.2 s disarms or silences, letting go early or moving focus away
+  cancels. Holding Space doesn't scroll the page.
+- **Status changes are spoken.** A hidden `role=status` region says
+  "Status: Threat · siren on" etc. when the LEVEL changes (not on every
+  poll, not on page load, not for arm/disarm, which the toast already
+  says). The offline banner is `role=status` too.
+- **Skip link.** The first Tab shows "Skip to content" top left; Enter
+  jumps past the 8 sidebar stops.
+- **Drawer (≤900px).** Was: the closed drawer's 8 links were still in the
+  Tab order, off-screen. Now it's `visibility:hidden` when closed (flips
+  after the slide-out, so the animation is unchanged). Opening it by
+  keyboard moves focus to its first link; Esc closes it and returns focus
+  to Menu / More.
+- **Account button** was a `<div onclick>`: no keyboard focus, no name. Now
+  a real `<button>` (same 38x38 look) with `aria-expanded`; Esc closes the
+  menu.
+- **Confirm dialog** is now `role=dialog` + `aria-modal`, labelled by its
+  title. Focus moves into it; **danger dialogs start on Cancel**, so a stray
+  Enter can't clear history. Tab stays on its two buttons; closing returns
+  focus to what opened it.
+- **Names and labels:** camera feeds have alt "<camera> live view" (Live
+  updates it on switching); thumbnails next to a name have `alt=""`; the
+  History search, the Detection sliders, the tier boxes, the two switches,
+  camera names, display name and the password fields got labels (password
+  fields also `autocomplete`). The camera slot selects lost an inline
+  border that hid the focus border. Switches show a focus ring on the
+  track (the real checkbox is invisible). The bell says the unread count.
+- **Files:** `web/templates/base.html`, `web/static/statuslight.js`,
+  `web/static/style.css`, `web/server.py`
+- **Tested:** the audit again (clean on every page/tab at both widths), plus
+  27/27 behaviour checks: skip link shows and lands in the content; Account
+  by Enter/Esc and by mouse; dialog focus, Tab trap, Esc returns focus,
+  nothing cleared; Enter arms; a 0.4 s Space tap doesn't disarm; a 1.4 s
+  Space hold disarms; Space arms without scrolling; focus leaving mid-hold
+  cancels; status change announced once and not repeated; Space-hold on
+  "Hold to silence" silences (siren and state were **stood in** in the
+  test, the real siren never sounded); drawer at 390 and 768: never in the
+  Tab order when closed, focus in on open, Esc slides it out and returns
+  focus; More by mouse still works; Live alt text. Re-ran the earlier
+  tab bar (23/23), cards (12/12), swipe (20/20), Live hold (11/11),
+  shortcuts (17/17) and toast (21/21) tests. Two of those needed test
+  updates, not code fixes: the toast test still tapped the Menu button
+  that the tab bar hides at 390px, and the shortcuts test expected focus
+  on the page after clicking Account (it's a real button now, so it keeps
+  focus). Also fixed a timing slip in the toast test: it checked the other
+  tab's 4 s toast after a slow screenshot.
+- **Not tested with a real screen reader** (NVDA/Narrator); the checks
+  read the roles, names and live-region text directly.
+- **Screenshot:** `docs/screenshots/17-skip-link.png`
+
+---
+
 ## Noticed, not changed
 
 - When the server is down, the top banner says "You're offline - CAPHY is
@@ -404,3 +467,13 @@ checks - no sideways scrolling allowed).
   right is Kem's call (detection rules).
 - Settings: the toggle descriptions ("Brightens dark camera images
   automatically.") render at body size, not the small grey `.fdesc` size.
+- Contrast: `--dim` (#625E6E) is 2.8-3.1:1 on the ink surfaces, under the
+  4.5:1 needed for small text (`--muted` is 5.3-5.9:1, fine). It's used in
+  28 places (timestamps, hints, empty states). #827E8E would reach 4.5:1
+  on the lightest surface. Not changed: it's a design token (Marl's call).
+- Live: the Cameras list tiles are `<div onclick>`, so they can't be
+  reached by Tab. The ← → keys (section 16) now cover switching cameras
+  from the keyboard; making the tiles buttons would also need their nested
+  fullscreen button moved.
+- The sidebar logo (click = logo animation) isn't keyboard-reachable; it's
+  decorative, and the status it shows is also in the text under it.
