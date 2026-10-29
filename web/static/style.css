@@ -141,6 +141,17 @@ html[data-siren=true] .logo .caphy-logo{animation:caphy-pulse 1s ease-in-out inf
   line-height:1.5;box-shadow:0 2px 10px rgba(224,164,76,.08)}
 .offlinebar svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;flex:0 0 auto}
 .offlinebar b{color:var(--orange)}
+/* Server unreachable (status light gray) is a different problem from "no
+   internet", so the same bar gets its own wording and offline's gray, and
+   it follows the status light exactly (3 missed polls). Was: both said
+   "You're offline - Local Mode", which points at the Wi-Fi when the
+   laptop or CAPHY is actually off. !important beats the inline display
+   caphyCheckOnline() sets. */
+.offlinebar .ob-srv{display:none}
+html[data-level="offline"] .offlinebar{display:flex !important;background:var(--s2);border-bottom-color:var(--gray);color:var(--text);box-shadow:none}
+html[data-level="offline"] .offlinebar b{color:var(--text)}
+html[data-level="offline"] .offlinebar .ob-net{display:none}
+html[data-level="offline"] .offlinebar .ob-srv{display:block}
 .offlinebar a{color:var(--teal2);margin-left:6px;white-space:nowrap;text-decoration:none;
   font-weight:600;border-bottom:1px solid transparent;transition:.15s}
 .offlinebar a:hover{border-bottom-color:var(--teal2)}

@@ -197,8 +197,9 @@
     </div></div></div>
     <div id="offlineBar" class="offlinebar" role="status" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-      <div><b>You're offline</b> &mdash; CAPHY is running in Local Mode. Only devices on the same Wi&#8209;Fi as this laptop can connect right now.
+      <div class="ob-net"><b>You're offline</b> &mdash; CAPHY is running in Local Mode. Only devices on the same Wi&#8209;Fi as this laptop can connect right now.
         <a href="/settings?tab=offline">How to connect &rarr;</a></div>
+      <div class="ob-srv"><b>Can't reach CAPHY</b> &mdash; check that the laptop is on and CAPHY is running. This page reconnects by itself.</div>
     </div>
     <div class="header">
       <button type="button" class="menubtn" id="menuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="sideNav">
@@ -334,14 +335,17 @@
       // /api/health already computes this safely in Python
       // (storage/sync.py's internet_available(): a bounded 2s-per-host
       // socket check, 5s-cached) with zero risk to the page's own process.
-      var online = false;
+      // null = couldn't ask: that's the server being down, not the
+      // internet, and style.css shows the "Can't reach CAPHY" wording off
+      // the gray status light instead (was: "You're offline - Local Mode")
+      var online = null;
       try{
         var r = await fetch('/api/health', {cache:'no-store'});
         var data = await r.json();
         online = !!data.is_online;
-      }catch(e){ online = false; }
+      }catch(e){ online = null; }
       var bar = document.getElementById('offlineBar');
-      if(bar) bar.style.display = online ? 'none' : 'flex';
+      if(bar) bar.style.display = online === false ? 'flex' : 'none';
     }
     caphyCheckOnline();
     caphyEvery(caphyCheckOnline, 8000);

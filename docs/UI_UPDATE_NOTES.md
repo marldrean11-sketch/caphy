@@ -550,13 +550,32 @@ focus landing on something hidden).
 
 ---
 
+## 22. Fix: "server down" no longer says "You're offline - Local Mode" (Oct 29)
+
+- **What:** the top bar now has two wordings. With no internet it says
+  "You're offline - Local Mode" (as before). When the server can't be
+  reached it says "**Can't reach CAPHY** - check that the laptop is on and
+  CAPHY is running. This page reconnects by itself.", in offline's gray.
+  The server-down bar follows the gray status light exactly (3 missed
+  polls, about 6 s), so the bar and logo always agree. On phones, where
+  the sidebar status text is out of sight, this bar is the only words
+  that say what's wrong.
+- **Why:** `caphyCheckOnline()` treated "couldn't ask `/api/health`" as "no
+  internet", which pointed people at their Wi-Fi when the laptop or
+  CAPHY was actually off.
+- **Files:** `web/templates/base.html` (second line in the bar;
+  `caphyCheckOnline()` no longer shows the Local Mode bar when it can't
+  ask), `web/static/style.css` (`html[data-level="offline"] .offlinebar`)
+- **Tested:** no internet (stand-in `/api/health`) shows the Local Mode
+  wording; online shows no bar. Server really stopped: about 6 s later
+  the logo goes gray and the bar says "Can't reach CAPHY" with a gray
+  line. It fits at 390px. Server restarted: the bar goes away.
+- **Screenshot:** `docs/screenshots/22-server-down-390.png`
+
+---
+
 ## Noticed, not changed
 
-- When the server is down, the top banner says "You're offline - CAPHY is
-  running in Local Mode", which reads like an internet problem rather than
-  "server unreachable". Cause: `caphyCheckOnline()` in
-  `web/templates/base.html` sets `online = false` when `/api/health` itself
-  can't be reached, so "server down" and "no internet" show the same bar.
 - In the offline state the Camera-off overlay disappears (offline state has
   no camera list), leaving a plain black box. Same as before the cleanup.
 - Phone, drawer open: a toast sits over the drawer's arm button for its
