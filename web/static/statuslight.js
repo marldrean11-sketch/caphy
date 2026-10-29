@@ -58,8 +58,6 @@
     if (st.level !== "offline") {
       const sc = document.getElementById("sideCams");
       if (sc) sc.textContent = camText(st);
-      const hc = document.getElementById("hdrCams");
-      if (hc) hc.textContent = (st.cams_online || 0) + " / " + (st.cams_total || 0) + " CAM";
     }
     // per-camera REC badges and "Camera off" overlays (data-*-cam = index
     // into st.cameras)
@@ -72,10 +70,20 @@
       const c = cams[+el.dataset.offCam];
       el.classList.toggle("show", !!(c && !c.on));
     });
+    // header status pill: "CLEAR · ARMED" (the words match describe())
+    // (phones hide the armed half - the logo ring and the Arm tab show it)
+    const pill = document.getElementById("hdrStatusTxt"), pillArm = document.getElementById("hdrArmTxt");
+    if (pill) pill.textContent = st.level === "offline" ? "OFFLINE" : (STRIP[st.level] || "CLEAR");
+    if (pillArm) pillArm.textContent = st.level === "offline" ? "" : st.armed ? " · ARMED" : " · DISARMED";
+    // incident card (base.html .sirenbar): shown on threat or siren
     const meta = document.getElementById("sirenMeta");
     if (meta) {
-      const d = st.distance ? " · " + st.distance + " m" : "";
-      meta.textContent = st.tier ? "Tier " + st.tier + d : "manual";
+      const where = [st.distance ? st.distance + " m away" : "", st.camera || ""].filter(Boolean).join(" · ");
+      meta.textContent = where || (st.siren_active && !st.tier ? "started by hand" : "");
+      const title = document.getElementById("incTitle"), what = document.getElementById("incWhat");
+      if (title) title.textContent = (st.tier ? "TIER " + st.tier + " · " : "") + "THREAT" + (st.siren_active ? " · SIREN ON" : "");
+      if (what) what.textContent = st.tier ? "Person detected" + (st.camera ? " at " + st.camera : "")
+        : st.siren_active ? "Siren is on" : "Threat";
     }
     const arm = document.getElementById("sideArmBtn");
     if (arm) {
@@ -98,6 +106,8 @@
   function setBadges(n) {
     const bell = document.querySelector('.header a.iconbtn[href="/history"]');
     if (bell) bell.setAttribute("aria-label", "Alert History" + (n ? ", " + n + " unread" : ""));
+    const nc = document.querySelector(".side .navcount");
+    if (nc) { nc.hidden = !n; nc.textContent = n < 100 ? n : "99+"; }
     [bell, document.querySelector('.tabbar a[href="/history"]')].forEach(function (a) {
       if (!a) return;
       let b = a.querySelector(".badge");
@@ -190,6 +200,7 @@
     });
   }
 
+  const STRIP = { clear: "CLEAR", idle: "CAMERAS OFF", watch: "WATCHING", threat: "THREAT" };
   function describe(st) {
     if (st.level === "offline") return "Can't reach CAPHY";
     if (st.level === "threat") return st.siren_active ? "Threat · siren on" : "Threat";
@@ -289,7 +300,7 @@
     return !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
   }
   function dialogOpen() {
-    return !!document.querySelector("#appModal.show, #logoModal.open, .snapmodal.show");
+    return !!document.querySelector("#appModal.show, #logoModal.open, .snapmodal.show, .cmdkpal.show");
   }
   // pages with their own keys (Live's arrow keys) use the same rules
   window.caphyKeysFree = function (e) {
@@ -330,7 +341,7 @@
     } else if (e.key === "?") {
       if (window.caphyToast) window.caphyToast({
         text: "Keyboard shortcuts", ms: 8000,
-        sub: "A arm · hold A to disarm · / search · Esc close · ← → snapshots or cameras"
+        sub: "Ctrl K commands · A arm · hold A to disarm · / search · G then O L H Y S E pages · Esc close · ← → snapshots or cameras"
       });
     }
   });
@@ -345,6 +356,11 @@
   // "Turn on" on a Camera off overlay
   function resumeCam(idx) { return post("/api/camera/" + idx + "/resume"); }
   window.caphyResumeCam = resumeCam;
+
+  // header clock (status strip) - once a second, only while visible
+  const clock = document.getElementById("hdrClock");
+  function tick() { clock.textContent = new Date().toTimeString().slice(0, 8); }
+  if (clock) { tick(); if (window.caphyEvery) window.caphyEvery(tick, 1000); else setInterval(tick, 1000); }
 
   window.caphyStatusPoll = poll;
   poll();

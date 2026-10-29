@@ -2308,6 +2308,11 @@ def guard():
 NAV = [("/", "Overview"), ("/live", "Live Camera"),
        ("/history", "Alert History"), ("/activity", "Activity"),
        ("/logs", "System Logs"), ("/settings", "Settings")]
+# "G then O" style jumps shown next to the sidebar links (static/cmdk.js)
+NAV_KEYS = {"/": "O", "/live": "L", "/activity": "Y", "/logs": "S", "/settings": "E"}
+# the header status pill, before statuslight.js takes over (same words)
+_STRIP_WORD = {"clear": "CLEAR", "idle": "CAMERAS OFF", "watch": "WATCHING",
+               "threat": "THREAT", "offline": "OFFLINE"}
 
 # Cache-busting version for style.css: a short hash of the file's own
 # contents, computed once at startup. Browsers were caching an old copy of
@@ -2321,7 +2326,7 @@ def _css_version():
     # versions them with the same hash
     try:
         h = hashlib.md5()
-        for name in ("style.css", "statuslight.js", "toast.js", "motion.js"):
+        for name in ("style.css", "statuslight.js", "toast.js", "motion.js", "cmdk.js"):
             with open(os.path.join(app.static_folder, name), "rb") as f:
                 h.update(f.read())
         return h.hexdigest()[:10]
@@ -2373,7 +2378,9 @@ def page(title, href, body, subtitle=""):
                            subtitle=subtitle, ncam=online, ntotal=light["cams_total"],
                            light=light, level_label=_LIGHT_LABEL[light["level"]],
                            user=shown_user,
-                           armed=_is_armed(), cam=cam, nalerts=unread,
+                           armed=_is_armed(), cam=cam, nalerts=unread, keyhint=NAV_KEYS,
+                           strip_label=(_STRIP_WORD.get(light["level"], "CLEAR"),
+                                        " · ARMED" if _is_armed() else " · DISARMED"),
                            css_ver=CSS_VER)
 
 

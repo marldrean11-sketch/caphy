@@ -21,12 +21,12 @@ minimise hook in the two desktop launchers (§19).
 | Interactive | tier meter §10, snapshot stepping §12, keyboard shortcuts §13, Live hold-to-disarm §5 |
 | Phones | bottom tab bar §14, History cards §15, Live camera swipe §16 |
 | Quality | accessibility §17, hidden-tab pause §18, desktop window + minimise fix §19, dark scrollbars §20 |
+| New look | shell §24 |
 | Fixes | tile width §1, overlays under header §11, Settings descriptions §21, server-down banner §22, live bell count §23 |
 
 **Needs a decision** (see "Noticed, not changed" at the end):
 - Should Overview's meter use the thresholds saved in Settings? (Marl)
 - The tier wording differs between Overview and Settings. (Kem)
-- `--dim` text contrast is below 4.5:1. (Marl)
 
 **Not tested:**
 - A second real camera. Live swipe was tested with stand-ins.
@@ -640,6 +640,73 @@ focus landing on something hidden).
 
 ---
 
+## 24. Command-center look, part 1: the shared shell (Oct 29)
+
+The new look Marl approved in `docs/mockup_command_center.html`, built into
+the shared layout so every page gets it. The design rules are unchanged:
+flat surfaces, status colours only for status, white-on-ink buttons, the
+1.2 s hold.
+
+- **Status strip (header):**
+  - A status pill, e.g. "CLEAR · ARMED".
+  - A **Ctrl+K** command bar button.
+  - A live clock.
+  - The bell and account buttons, as before.
+  - The camera-count pill moved out; the sidebar already shows the count.
+  - As the strip narrows, the subtitle goes first (under 1280px), then the
+    clock and the button's label (under 1100px).
+- **Phones:** the sidebar is hidden there, so the status-light logo sits
+  top-left in the header. The pill drops "· ARMED"; the logo ring and the
+  Arm tab already show it.
+- **Sidebar:** MONITOR / SYSTEM sections. Alert History carries the unread
+  count, which stays live. The "G then a letter" hints show on hover.
+- **Status edge:** a thin frame round the screen in the status colour.
+  It's faint when clear, stronger when watching or offline, and breathes
+  during a threat (opacity only).
+- **Incident card** (the old red siren bar, reworked): it shows during a
+  threat or while the siren sounds, under the strip on every page. It
+  reads "TIER 3 · THREAT · SIREN ON", then "Person detected at Front
+  door", then "1.8 m away · Front door", with **View live** and
+  **Hold to silence**. The silence button only appears while the siren is
+  on.
+- **Command bar** (`static/cmdk.js`): Ctrl+K or the header button.
+  - It covers the pages, every Settings tab, Tier 3 / today / last-24-h
+    alerts, Arm, and Log out. Typing a date searches alerts.
+  - **Disarm only explains the hold**; nothing in it sounds the siren.
+  - Keyboard: ↑↓ Enter Esc; focus stays in it and goes back to where you
+    were.
+  - **G then O / L / H / Y / S / E** jumps to Overview / Live / History /
+    Activity / Logs / Settings. Alerts is H because A alone arms.
+- **`--dim` raised** from #625E6E to #827E8E, so small grey text now meets
+  4.5:1 everywhere. This was in the approved mockup.
+- A minimised desktop window also pauses the CSS loops (the edge, the
+  logo).
+- **Files:** `web/templates/base.html`, `web/static/style.css` (the
+  COMMAND-CENTER SHELL block), `web/static/statuslight.js`,
+  `web/static/cmdk.js` (new), `web/server.py` (`NAV_KEYS`,
+  `_STRIP_WORD`, `cmdk.js` in `CSS_VER`)
+- **Tested (22/22):**
+  - All 6 pages at 1440, 768 and 390: no sideways scroll, the header
+    fits, and the logo is top-left on phones.
+  - The pill matches `/api/state`; the clock ticks; the sections and
+    count are right; the edge is in the status colour.
+  - Command bar: Ctrl+K opens with focus in the box; "tier 3" + Enter
+    goes to the filter; a date offers an alert search; Esc closes; the
+    header button works; "users" goes to the Users tab. "Arm system"
+    arms, and "Disarm system" doesn't disarm.
+  - G L and G H jump; G O while typing in search does nothing.
+  - Incident card (stand-in state, so the real siren never sounded): the
+    text is right, there's no silence button without the siren, it
+    appears with the siren, and the edge breathes. It fits at 390 and
+    goes away after.
+  - The minimise pause works.
+  - Re-run: markup audit clean, status light 12/12, keyboard 27/27, tab
+    bar 23/23, fixes 20/20.
+- **Screenshots:** `docs/screenshots/24-shell-1440.png`, `-threat.png`,
+  `-cmdk.png`, `-390.png`
+
+---
+
 ## Noticed, not changed
 
 - In the offline state the Camera-off overlay disappears (offline state has
@@ -655,10 +722,6 @@ focus landing on something hidden).
   clip, Tier 3 · siren"; Settings' cards say "Record event only / Take a
   snapshot and notify / Record video, sound siren, and notify". Which is
   right is Kem's call (detection rules).
-- Contrast: `--dim` (#625E6E) is 2.8-3.1:1 on the ink surfaces, under the
-  4.5:1 needed for small text (`--muted` is 5.3-5.9:1, fine). It's used in
-  28 places (timestamps, hints, empty states). #827E8E would reach 4.5:1
-  on the lightest surface. Not changed: it's a design token (Marl's call).
 - Live: the Cameras list tiles are `<div onclick>`, so they can't be
   reached by Tab. The ← → keys (section 16) now cover switching cameras
   from the keyboard; making the tiles buttons would also need their nested

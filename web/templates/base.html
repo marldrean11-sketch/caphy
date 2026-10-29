@@ -59,12 +59,14 @@
     function caphySetAppHidden(h){
       if(window.caphyAppHidden === !!h) return;
       window.caphyAppHidden = !!h;
+      document.documentElement.classList.toggle('caphy-paused', !!h);
       document.dispatchEvent(new Event('visibilitychange'));
     }
   </script>
   <script src="{{ url_for('static', filename='toast.js') }}?v={{ css_ver }}" defer></script>
   <script src="{{ url_for('static', filename='motion.js') }}?v={{ css_ver }}" defer></script>
 <script src="{{ url_for('static', filename='statuslight.js') }}?v={{ css_ver }}" defer></script>
+  <script src="{{ url_for('static', filename='cmdk.js') }}?v={{ css_ver }}" defer></script>
 </head>
 <body>
 <!-- keyboard users land here first: one Tab + Enter skips the 8 sidebar stops -->
@@ -72,6 +74,10 @@
 <!-- screen readers hear the status level change (statuslight.js); arming
      and new alerts are already spoken by the toast stack -->
 <div class="sronly" id="statusSay" role="status" aria-live="polite"></div>
+<!-- status edge: a thin frame round the whole console in the status colour,
+     readable from across the room (command-center look, approved in
+     docs/mockup_command_center.html) -->
+<div class="statusedge" aria-hidden="true"></div>
 <div class="app-titlebar" id="appTitlebar">
     <div class="atb-brand">
       <svg class="caphy-logo" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
@@ -168,7 +174,8 @@
     </div>
     <div class="nav">
     {% for href, label in nav %}
-      <a href="{{ href }}" class="{{ 'active' if page == href else '' }}">
+      {% if href == '/' %}<div class="navsec">Monitor</div>{% elif href == '/activity' %}<div class="navsec">System</div>{% endif %}
+      <a href="{{ href }}" class="{{ 'active' if page == href else '' }}"{% if page == href %} aria-current="page"{% endif %}>
         {% if href == '/' %}<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         {% elif href == '/live' %}<svg viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>
         {% elif href == '/history' %}<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
@@ -177,6 +184,8 @@
         {% elif href == '/settings' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         {% endif %}
         {{ label }}
+        {% if href == '/history' %}<span class="navcount"{% if not nalerts %} hidden{% endif %}>{{ nalerts if nalerts and nalerts < 100 else ('99+' if nalerts else '') }}</span>
+        {% elif href in keyhint %}<kbd class="navkey">G {{ keyhint[href] }}</kbd>{% endif %}
       </a>
     {% endfor %}
     </div>
@@ -191,10 +200,6 @@
   </div>
 
   <div class="main">
-    <div class="sirenbar" role="alert"><div><div class="in">
-      <span>Siren on</span><span class="mono" id="sirenMeta"></span>
-      <button type="button" class="hold" data-act="silence"><span class="fill"></span><span class="lbl">Hold to silence</span></button>
-    </div></div></div>
     <div id="offlineBar" class="offlinebar" role="status" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
       <div class="ob-net"><b>You're offline</b> &mdash; CAPHY is running in Local Mode. Only devices on the same Wi&#8209;Fi as this laptop can connect right now.
@@ -205,9 +210,22 @@
       <button type="button" class="menubtn" id="menuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="sideNav">
         <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
+      <svg class="caphy-logo hdrlogo" viewBox="0 0 96 96" width="28" height="28" aria-hidden="true">
+        <defs><linearGradient id="cgh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="g1"></stop><stop offset="1" class="g2"></stop></linearGradient>
+        <clipPath id="cch"><path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"></path></clipPath>
+        <clipPath id="ceh"><path d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z"></path></clipPath></defs>
+        <path class="halo" d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z"></path>
+        <path d="M48 6 L82 18 V44 C82 66 66 82 48 90 C30 82 14 66 14 44 V18 Z" fill="url(#cgh)"></path>
+        <g clip-path="url(#cch)"><path class="eye" d="M22 46 C30 32 66 32 74 46 C66 60 30 60 22 46 Z" fill="#0E0C15"></path>
+          <g clip-path="url(#ceh)"><g class="pupil"><circle class="iris" cx="48" cy="46" r="12"></circle><circle cx="52" cy="41" r="2.5" fill="#fff" opacity=".85"></circle></g></g></g>
+      </svg>
       <div class="ht"><h1>{{ title }}</h1>{% if subtitle %}<div class="sub">{{ subtitle|safe }}</div>{% endif %}</div>
       <div class="hr">
-        <span class="pill pg dotb" id="hdrCams">{{ ncam }} / {{ ntotal }} CAM</span>
+        <span class="spill" id="hdrStatus"><span class="dot"></span><span><span id="hdrStatusTxt">{{ strip_label[0] }}</span><span class="armw" id="hdrArmTxt">{{ strip_label[1] }}</span></span></span>
+        <button type="button" class="cmdkbtn" id="cmdkBtn" aria-label="Search or run a command" aria-keyshortcuts="Control+K">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+          <span>Search or run a command</span><kbd>Ctrl K</kbd></button>
+        <span class="clock" id="hdrClock" aria-hidden="true"></span>
         <a class="iconbtn" href="/history" title="Alert History" aria-label="Alert History{% if nalerts %}, {{ nalerts }} unread{% endif %}">
           {% if nalerts and nalerts > 0 %}<span class="badge">{{ nalerts if nalerts < 100 else '99+' }}</span>{% endif %}
           <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
@@ -227,6 +245,15 @@
         </div>
       </div>
     </div>
+    <!-- incident card: slides in during a threat or while the siren sounds,
+         on every page. Was: a plain red "Siren on" bar. Text is filled in by
+         statuslight.js; Hold to silence only shows while the siren is on. -->
+    <div class="sirenbar" role="alert"><div><div class="in">
+      <div class="inctxt"><div class="inct" id="incTitle">THREAT</div>
+        <div class="incw" id="incWhat">Siren on</div><div class="mono incm" id="sirenMeta"></div></div>
+      <div class="incacts">{% if page != '/live' %}<a class="btn ghost" href="/live">View live</a>{% endif %}
+        <button type="button" class="hold" data-act="silence"><span class="fill"></span><span class="lbl">Hold to silence</span></button></div>
+    </div></div></div>
     <div class="content" id="content" tabindex="-1">{{ body|safe }}</div>
     <div id="pageEnd" hidden></div>
   </div>
