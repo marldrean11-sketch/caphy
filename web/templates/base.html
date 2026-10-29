@@ -46,8 +46,20 @@
     // laptop that's also running YOLO. Inline in <head> so the pages' own
     // inline scripts can use it.
     function caphyEvery(fn, ms){
-      setInterval(function(){ if(!document.hidden) fn(); }, ms);
-      document.addEventListener('visibilitychange', function(){ if(!document.hidden) fn(); });
+      setInterval(function(){ if(!caphyIsHidden()) fn(); }, ms);
+      document.addEventListener('visibilitychange', function(){ if(!caphyIsHidden()) fn(); });
+    }
+    // The desktop app's window (pywebview / WebView2) keeps reporting
+    // "visible" while it's minimised - measured, Oct 29 - so the launcher
+    // calls caphySetAppHidden() on minimise / restore (caphy_desktop.py
+    // _wire_minimize_pause) and caphyIsHidden() covers both. Re-firing
+    // visibilitychange sends it down the same path as a real tab switch.
+    window.caphyAppHidden = false;
+    function caphyIsHidden(){ return document.hidden || window.caphyAppHidden; }
+    function caphySetAppHidden(h){
+      if(window.caphyAppHidden === !!h) return;
+      window.caphyAppHidden = !!h;
+      document.dispatchEvent(new Event('visibilitychange'));
     }
   </script>
   <script src="{{ url_for('static', filename='toast.js') }}?v={{ css_ver }}" defer></script>

@@ -410,6 +410,12 @@ if __name__ == "__main__":
     )
     api._window = window
     window.events.closed += on_window_close
+    # pause polling/video while minimised - same helper as the .exe
+    try:
+        from caphy_desktop import _wire_minimize_pause
+        _wire_minimize_pause(window)
+    except Exception as e:
+        print(f"[CAPHY] Minimise pause not wired: {e}")
     _WINDOW_OPENED_AT[0] = time.time()
 
     # debug=True opens DevTools inside the native window itself (right-click

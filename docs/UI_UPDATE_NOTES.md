@@ -482,6 +482,46 @@ focus landing on something hidden).
 
 ---
 
+## 19. Desktop window (pywebview) check + fix: minimising now pauses too (Nov 2 item, done Oct 29)
+
+- **How it was tested:** pywebview isn't installed in `.venv` (and isn't in
+  `requirements.txt`), so it went into the test folder only; `.venv` is
+  untouched. A small harness opens the window with the **same
+  `create_window()` arguments and `_WindowApi`** as `caphy_desktop.py`
+  (frameless, 1200x800, js_api), with a throwaway WebView2 profile, so
+  your real desktop sign-in wasn't touched. Playwright drove the real
+  window through WebView2's debug port. WebView2 here is Edge 156.
+- **Works in the window:** the CAPHY title bar and `pywebview.api`; all 6
+  pages render with no sideways scroll at the window's size; page
+  transitions run; Arm click, the 1.2 s hold disarm, and the Armed /
+  Disarmed+Undo toasts; keyboard shortcuts; no page errors.
+- **Found:** minimising the window did **not** pause anything. WebView2
+  keeps reporting `visibilityState: "visible"` while minimised, so the
+  hidden-tab pause from section 18 never kicked in. A minimised console
+  kept polling and pulling MJPEG.
+- **Fix:** `caphy_desktop.py` has a new `_wire_minimize_pause(window)`.
+  It passes pywebview's `minimized` / `restored` / `maximized` events to
+  the page through `caphySetAppHidden()`, and both launchers call it
+  (`desktop_launcher.py` imports it). In base.html, `caphyIsHidden()` =
+  `document.hidden` or "the app window is minimised". `caphyEvery()` and
+  statuslight.js use it, and a minimise re-fires `visibilitychange` so it
+  goes down the same path as a tab switch.
+- **Files:** `caphy_desktop.py`, `desktop_launcher.py`,
+  `web/templates/base.html`, `web/static/statuslight.js`
+- **Tested (19/19, in the real window):** everything above, plus:
+  - The title bar's minimise button really minimises (`IsIconic`).
+  - Minimised: the page is told, Live's feeds are parked, there are 0
+    requests in 5 s, and the laptop's connections go 2 -> 0.
+  - Restored: polls and video come back.
+  - Maximised, then minimised from the taskbar: it pauses, and resumes
+    when it comes back maximised. pywebview sends no "restored" event in
+    that case, which is why `maximized` is hooked too.
+  - Not run: the packaged .exe (needs a PyInstaller build) and
+    `Start_CAPHY.bat`. Both go through the same helper.
+- **Screenshot:** `docs/screenshots/19-desktop-window-overview.png`
+
+---
+
 ## Noticed, not changed
 
 - When the server is down, the top banner says "You're offline - CAPHY is

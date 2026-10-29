@@ -246,6 +246,28 @@ class _WindowApi:
             print(f'[CAPHY] maximize/restore failed: {e}')
 
 
+def _wire_minimize_pause(window):
+    """Tell the page when the window is minimised, so it pauses polling and video."""
+    # WebView2 keeps reporting document.visibilityState "visible" while the
+    # window is minimised (checked Oct 29 with a real minimise), so the
+    # page's hidden-tab pause never kicked in here: a minimised console
+    # kept polling and pulling MJPEG from the laptop that's running YOLO.
+    # pywebview does see the minimise, so pass it on. "maximized" counts
+    # as shown too - a window minimised while maximised comes back that way
+    # without a "restored" event.
+    def _tell(hidden):
+        try:
+            window.evaluate_js("window.caphySetAppHidden && caphySetAppHidden(%s)" % ("true" if hidden else "false"))
+        except Exception as e:
+            print(f"[CAPHY] Could not pass minimise/restore to the page: {e}")
+    try:
+        window.events.minimized += lambda: _tell(True)
+        window.events.restored += lambda: _tell(False)
+        window.events.maximized += lambda: _tell(False)
+    except Exception as e:
+        print(f"[CAPHY] Minimise pause not wired (older pywebview?): {e}")
+
+
 def _open_console_window(url):
     """Try a native window; fall back to the default browser.
 
@@ -281,6 +303,7 @@ def _open_console_window(url):
                                   width=1200, height=800, resizable=True,
                                   frameless=True, js_api=api)
             api._window = window
+            _wire_minimize_pause(window)
             _start_ts = time.time()
             # private_mode=False is the actual fix for "signs me out every
             # time I close the app": pywebview 6.x defaults private_mode to

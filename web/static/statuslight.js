@@ -153,9 +153,12 @@
   function closeStream() {
     if (stream) { stream.close(); stream = null; }
   }
+  // document.hidden, or the desktop window minimised (base.html <head>)
+  function hidden() { return window.caphyIsHidden ? window.caphyIsHidden() : document.hidden; }
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) closeStream(); else openStream();
-    pauseFeeds(document.hidden);
+    const h = hidden();
+    if (h) closeStream(); else openStream();
+    pauseFeeds(h);
   });
 
   // Same idea for the camera video: each <img> on /video_feed/ is a
@@ -164,6 +167,8 @@
   // data-feed-src) and reconnects when it's shown again.
   const BLANK = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
   function pauseFeeds(hide) {
+    // (a repeat of the same state finds nothing to do: the selector only
+    // matches feeds that are still in the other state)
     document.querySelectorAll(hide ? 'img[src*="/video_feed/"]' : "img[data-feed-src]").forEach(function (img) {
       if (hide) { img.dataset.feedSrc = img.getAttribute("src"); img.src = BLANK; }
       else { img.src = img.dataset.feedSrc; delete img.dataset.feedSrc; }
@@ -328,7 +333,7 @@
 
   window.caphyStatusPoll = poll;
   poll();
-  if (!document.hidden) openStream();
+  if (!hidden()) openStream();
   else pauseFeeds(true);        // opened in a background tab: don't stream until it's looked at
   // only while visible (caphyEvery is in base.html's <head>)
   if (window.caphyEvery) window.caphyEvery(poll, 2000); else setInterval(poll, 2000);
