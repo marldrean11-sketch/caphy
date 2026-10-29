@@ -21,7 +21,7 @@ minimise hook in the two desktop launchers (§19).
 | Interactive | tier meter §10, snapshot stepping §12, keyboard shortcuts §13, Live hold-to-disarm §5 |
 | Phones | bottom tab bar §14, History cards §15, Live camera swipe §16 |
 | Quality | accessibility §17, hidden-tab pause §18, desktop window + minimise fix §19, dark scrollbars §20 |
-| New look | shell §24 |
+| New look | shell §24, Overview §25 |
 | Fixes | tile width §1, overlays under header §11, Settings descriptions §21, server-down banner §22, live bell count §23 |
 
 **Needs a decision** (see "Noticed, not changed" at the end):
@@ -707,6 +707,62 @@ flat surfaces, status colours only for status, white-on-ink buttons, the
 
 ---
 
+## 25. Command-center look, part 2: Overview (Oct 29)
+
+- **Status hero:** the sentence is the status ("WATCHING · TIER 2",
+  "Someone at Cam 0.", "3.1 m · recording a short clip"), and the big
+  logo copy is gone. The sidebar/header logo is the one status light.
+  The quick actions sit on the right: **Snapshot all** (every camera
+  that's on; it says so if they're all off) and an Arm button that works
+  like the sidebar one (click arms, 1.2 s hold disarms).
+- **Camera wall:**
+  - Every camera has corner brackets and "CAM 01 · name" on the video.
+  - REC sits clear of the bracket.
+  - A **PERSON · 3.1 m · T2** chip and a status-colour border appear on
+    the camera that sees someone. The box round the person is still the
+    detector's own drawing on the frame.
+  - Clicking a tile opens Live.
+  - An off camera keeps its brackets and name over the "Camera off"
+    cover.
+- **Distance radar** (replaces the flat meter bar):
+  - The 10 m in front of the camera as a half circle, with rings at the
+    Tier 1 / Tier 3 boundaries. The zones are tinted by what each tier
+    means.
+  - A dot shows the person, plus a line such as "Person 3.1 m from Cam 0
+    · Tier 2". It moves closer as they do.
+  - The sweep stops when the cameras are off or the page is offline.
+  - It uses the same `config.py` thresholds the meter did (still the open
+    question about using the Settings values).
+- **Last 24 hours:**
+  - One bar per real hour, ending now. The top edge shows the worst tier
+    in that hour (yellow / red); the bars themselves are neutral counts.
+  - Hover or focus shows "17:00 · 9 alerts".
+  - **Clicking a bar opens Alert History for that hour**
+    (`?q=2026-10-29T17`).
+  - Also fixed: the old chart grouped by hour-of-day against a UTC "now"
+    while the timestamps are local, so its hours could be shifted.
+- **Recent alerts:** now include the camera name. Live-added rows match.
+- **Files:** `web/server.py` (`dashboard()`), `web/static/style.css`
+  (the COMMAND-CENTER OVERVIEW block)
+- **Tested (14/14):**
+  - Hero: no second logo, quick actions present.
+  - One tile per camera, with 4 brackets and the label; REC clear of the
+    bracket.
+  - 24 bars ending "now"; hover tooltip; clicking the 17:00 bar opens
+    History with that hour's 9 alerts.
+  - Hero Arm: click arms, the hold disarms, and the label follows.
+  - Snapshot all with the camera off says so.
+  - Stand-in states: a person at 3.1 m shows the dot, the text and the
+    chip on that tile; at 1.5 m the dot moves toward the camera; with
+    nobody, the dot and chip go.
+  - No sideways scroll at 768 or 390; no page errors.
+  - Re-run: count-up 9/9, alert toast 18/18 (its expected row text now
+    includes the camera), status light 12/12.
+- **Screenshots:** `docs/screenshots/25-overview-1440.png`, `-watch.png`,
+  `-390.png`
+
+---
+
 ## Noticed, not changed
 
 - In the offline state the Camera-off overlay disappears (offline state has
@@ -715,7 +771,7 @@ flat surfaces, status colours only for status, white-on-ink buttons, the
   4 s (x closes it). The Nov 1 bottom tab bar replaces the drawer anyway.
 - In the 340px alert toast the "camera · distance · time" line wraps to two
   lines when View is shown. Readable; cutting it would hide the time.
-- Overview's meter always shows the config defaults (4.5 / 2.5 m, fixed
+- Overview's meter (now the radar, §25) always shows the config defaults (4.5 / 2.5 m, fixed
   55/20/25 band widths), not the thresholds saved in Settings - after
   changing them in Settings the two meters disagree.
 - Tier wording differs: Overview's meter says "Tier 1 · snapshot, Tier 2 ·

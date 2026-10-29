@@ -3383,9 +3383,14 @@ def dashboard():
                             "WHERE date(timestamp)=date('now','localtime')").fetchone()["c"]
     pending = db.conn.execute("SELECT COUNT(*) c FROM alerts WHERE synced=0").fetchone()["c"]
     recent = db.recent_alerts(5)
-    hours = {int(r["h"]): r["c"] for r in db.conn.execute(
-        "SELECT strftime('%H', timestamp) h, COUNT(*) c FROM alerts "
-        "WHERE timestamp >= datetime('now','-1 day') GROUP BY h")}
+    # last 24 hours by real hour (date + hour) with the worst tier in each.
+    # Was: grouped by hour-of-day only, against a UTC "now" while the
+    # timestamps are local - so the chart's hours could be off by the
+    # time-zone offset.
+    since = (datetime.now() - timedelta(hours=23)).strftime("%Y-%m-%dT%H")
+    hours24 = {r["k"]: (r["c"], r["t"] or 0) for r in db.conn.execute(
+        "SELECT strftime('%Y-%m-%dT%H', timestamp) k, COUNT(*) c, MAX(tier) t FROM alerts "
+        "WHERE strftime('%Y-%m-%dT%H', timestamp) >= ? GROUP BY k", (since,))}
     db.close()
 
     cur = max([w.get_stats().get("tier", 0) for w in workers] or [0])
@@ -3399,31 +3404,52 @@ def dashboard():
             cur_dist = s.get("distance", "-")
             break
 
-    # ---- status hero: big status-light logo + one plain sentence, then the
-    # distance meter. Rendered from the current state and kept live by
-    # static/statuslight.js ("caphy:state" event -> script below). ----
+    # ---- status hero: one plain sentence IS the status. Was: a big copy of
+    # the logo beside it - the sidebar / header logo is the status light, so
+    # the hero no longer repeats it (command-center look, notes section 25).
+    # Kept live by static/statuslight.js ("caphy:state" -> script below). ----
+    import html as _html
     first_cam = workers[0].name if workers else "Camera"
     light = _status_light()
+    armed_now = _is_armed()
     if light["not_watching"]:
         h_state, h_say = "Cameras off", ("Cameras are off." if workers else "No cameras set up.")
         h_sub = "CAPHY isn't watching anything right now."
     else:
         h_state, h_say, h_sub = "Clear", f"{first_cam} is clear.", cams_text(light)
+    snap_btn = ('<button type="button" class="btn ghost" id="snapAll">Snapshot all</button>' if workers else "")
+
+    # ---- distance radar: the 10 m in front of the camera as a half circle,
+    # with the Tier 1 / Tier 3 boundaries as rings and the person as a dot.
+    # Replaces the flat meter bar; same thresholds the meter used. ----
+    R = 140.0
+    def _r(m):
+        return max(0.0, min(R, float(m) / 10.0 * R))
+    r1, r3 = _r(config.TIER1_MIN_DIST), _r(config.TIER3_MAX_DIST)
+    radar = f"""
+      <svg class="radar" id="radar" viewBox="0 0 300 164" role="img" aria-labelledby="radarTxt">
+        <path class="rz" d="M10 150 A140 140 0 0 1 290 150 Z"/>
+        <path class="rz2" d="M{150 - r1:.1f} 150 A{r1:.1f} {r1:.1f} 0 0 1 {150 + r1:.1f} 150 Z"/>
+        <path class="rz3" d="M{150 - r3:.1f} 150 A{r3:.1f} {r3:.1f} 0 0 1 {150 + r3:.1f} 150 Z"/>
+        <path class="rr" d="M10 150 A140 140 0 0 1 290 150"/>
+        <path class="rr" d="M{150 - r1:.1f} 150 A{r1:.1f} {r1:.1f} 0 0 1 {150 + r1:.1f} 150"/>
+        <path class="rr" d="M{150 - r3:.1f} 150 A{r3:.1f} {r3:.1f} 0 0 1 {150 + r3:.1f} 150"/>
+        <line class="rr" x1="10" y1="150" x2="290" y2="150"/>
+        <g class="sweep"><line x1="150" y1="150" x2="150" y2="14"/></g>
+        <text x="10" y="163">10 m</text><text x="{150 - r1:.0f}" y="163" text-anchor="middle">{config.TIER1_MIN_DIST:g}</text>
+        <text x="{150 - r3:.0f}" y="163" text-anchor="middle">{config.TIER3_MAX_DIST:g}</text><text x="150" y="163" text-anchor="middle">cam</text>
+        <rect class="cambox" x="144" y="145" width="12" height="9" rx="2"/>
+        <g class="pdot" id="radarDot"><circle class="ping" r="5"/><circle r="5"/></g>
+      </svg>
+      <div class="rlegend"><span id="radarTxt">No one in view</span><span>T1 &middot; T2 &middot; T3</span></div>"""
+
     cards = f"""
     <div class="hero">
-      {logo_svg("hero", "biglogo")}
-      <div><div class="state" id="hState">{h_state}</div>
+      <div class="htxt"><div class="state" id="hState">{h_state}</div>
         <div class="say" id="hSay">{h_say}</div>
         <div class="hsub" id="hSub">{h_sub}</div></div>
-    </div>
-    <div class="meter">
-      <div class="track">
-        <div class="band" id="hb1">TIER 1 &middot; snapshot</div>
-        <div class="band" id="hb2">TIER 2 &middot; clip</div>
-        <div class="band" id="hb3">TIER 3 &middot; siren</div>
-        <div class="mk" id="hMk"><span id="hMkT"></span></div>
-      </div>
-      <div class="scale"><span>10 m</span><span>{config.TIER1_MIN_DIST:g} m</span><span>{config.TIER3_MAX_DIST:g} m</span><span>camera</span></div>
+      <div class="hqa">{snap_btn}
+        <button type="button" class="hold heroarm{" armed" if armed_now else ""}" id="heroArmBtn" data-act="arm" aria-keyshortcuts="A"><span class="fill"></span><span class="lbl">{"Hold to disarm" if armed_now else "Arm system"}</span></button></div>
     </div>
     <div class="statrow">
       <div><b id="hToday" data-count="{today}">{today}</b><span>alerts today</span></div>
@@ -3433,7 +3459,7 @@ def dashboard():
     </div>
     <script>
     (function(){{
-      var T1={config.TIER1_MIN_DIST}, T3={config.TIER3_MAX_DIST}, FIRST={json.dumps(first_cam)};
+      var R=140, FIRST={json.dumps(first_cam)};
       function set(id,v){{var e=document.getElementById(id); if(!e||e.textContent===v) return;
         e.textContent=v; e.classList.remove('roll'); void e.offsetWidth; e.classList.add('roll');}}
       document.addEventListener('caphy:state', function(ev){{
@@ -3447,19 +3473,39 @@ def dashboard():
           else {{ state = st.emergency ? 'Emergency' : 'Siren on'; say = st.emergency ? 'Emergency mode is on.' : 'Siren is sounding.'; sub='Turned on manually'; }}
         }} else if(st.level==='watch'){{
           if(st.tier){{ state='Watching · Tier '+st.tier; say='Someone at '+cam+'.'; sub=d+' · '+(st.tier===1?'snapshot saved':'recording a short clip'); }}
-          else {{ state='Watching'; say=cam+' camera is offline.'; sub='No frames from it \u00b7 '+sub; }}
+          else {{ state='Watching'; say=cam+' camera is offline.'; sub='No frames from it · '+sub; }}
         }} else if(st.level==='idle'){{ state='Cameras off'; say = st.cams_total ? 'Cameras are off.' : 'No cameras set up.'; sub="CAPHY isn't watching anything right now."; }}
         else if(st.armed){{ state='Clear · armed'; say='Armed. '+FIRST+' is clear.'; }}
         set('hState',state); set('hSay',say); set('hSub',sub);
         var hc=document.getElementById('hCams'); if(hc && st.level!=='offline') hc.textContent=(st.cams_online||0)+' / '+(st.cams_total||0);
-        for(var i=1;i<=3;i++){{ var b=document.getElementById('hb'+i); if(b) b.classList.toggle('hit', st.tier===i && st.level!=='offline'); }}
-        var mk=document.getElementById('hMk'), dist=parseFloat(st.distance);
-        if(mk){{
-          if(st.tier && !isNaN(dist) && st.level!=='offline'){{
-            mk.style.opacity=1; mk.style.left=Math.max(0,Math.min(99.5,(10-dist)*10))+'%';
-            document.getElementById('hMkT').textContent=dist.toFixed(1)+' m';
-          }} else mk.style.opacity=0;
+        // hero Arm button (statuslight.js does the sidebar's and the tab bar's)
+        var ab=document.getElementById('heroArmBtn');
+        if(ab && st.level!=='offline'){{ ab.classList.toggle('armed', !!st.armed); ab.querySelector('.lbl').textContent = st.armed ? 'Hold to disarm' : 'Arm system'; }}
+        // who is where: radar dot + a chip on that camera's tile
+        var dist=parseFloat(st.distance), seen = !!st.tier && !isNaN(dist) && st.level!=='offline';
+        var dot=document.getElementById('radarDot');
+        if(dot){{
+          if(seen){{ var r=Math.max(0,Math.min(R,dist/10*R)), a=70*Math.PI/180;
+            dot.setAttribute('transform','translate('+(150+r*Math.cos(a)).toFixed(1)+' '+(150-r*Math.sin(a)).toFixed(1)+')'); }}
+          dot.classList.toggle('on', seen);
+          document.getElementById('radarTxt').textContent = seen ? 'Person '+dist.toFixed(1)+' m from '+cam+' · Tier '+st.tier : 'No one in view';
         }}
+        document.querySelectorAll('.cctile').forEach(function(t){{
+          var hit = seen && t.dataset.camName===cam, chip=t.querySelector('.ccdet');
+          t.classList.toggle('hasp', hit);
+          if(chip){{ chip.hidden=!hit; if(hit) chip.textContent='PERSON · '+dist.toFixed(1)+' m · T'+st.tier; }}
+        }});
+      }});
+      // a camera tile opens Live; its own "Turn on" button doesn't
+      document.querySelectorAll('.cctile .feedwrap').forEach(function(w){{
+        w.addEventListener('click', function(e){{ if(!e.target.closest('button')) location.href='/live'; }});
+      }});
+      var sa=document.getElementById('snapAll');
+      if(sa) sa.addEventListener('click', async function(){{
+        var ids={json.dumps([w.cam_id for w in workers if not w.paused])}, ok=0, folder='';
+        for(const id of ids){{ try{{ const j=await (await fetch('/api/snapshot/'+id,{{method:'POST'}})).json(); if(j.ok){{ ok++; folder=j.folder||folder; }} }}catch(e){{}} }}
+        if(window.caphyToast) window.caphyToast(ok ? {{text:'Snapshot saved.', sub: ok+' camera'+(ok===1?'':'s')+' · '+(folder||'Pictures\\\\CAPHY')}}
+                                                  : {{text:'No snapshot taken.', sub: ids.length ? 'Is the camera on?' : 'Every camera is switched off.'}});
       }});
       // A new alert slides into Recent Alerts and the counts go up by one,
       // without a reload. Was: both only changed when the page reloaded.
@@ -3467,12 +3513,13 @@ def dashboard():
       document.addEventListener('caphy:alert', function(ev){{
         const a=ev.detail, t=a.tier||1;
         const ev_txt=String(a.event||'Person detected').replace(/[<>&]/g,'');
+        const cam_txt=String(a.camera||'').replace(/[<>&]/g,'');
         const row=document.createElement('div');
         row.className='arow t'+t+' new';
         row.innerHTML='<div class="av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/>'
           +'<path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg></div>'
           +'<div class="txt"><div class="tt"><span class="pill p'+t+'">Tier '+t+'</span></div>'
-          +'<div class="ss">'+ev_txt+' &middot; '+(+a.distance_m)+' m away</div></div>'
+          +'<div class="ss">'+ev_txt+(cam_txt?' &middot; '+cam_txt:'')+' &middot; '+(+a.distance_m)+' m away</div></div>'
           +'<div class="tm">just now</div>';
         let list=document.getElementById('recentAlerts');
         if(!list) return;
@@ -3501,7 +3548,9 @@ def dashboard():
     }})();
     </script>"""
 
-    # ---- live feed panel (all active cameras, compact) ----
+    # ---- camera wall: every camera, corner brackets, its name on the video,
+    # and a PERSON / distance / tier chip on whichever camera sees someone.
+    # The box round the person is the detector's own drawing on the frame. ----
     if workers:
         tiles = ""
         for i, w in enumerate(workers):
@@ -3510,18 +3559,20 @@ def dashboard():
             # = the camera's position in /api/state "cameras")
             rec = " show" if w.is_recording() else ""
             off = " show" if w.paused else ""
-            tiles += (f'<div class="feedtile"><div class="feedwrap">'
-                      f'<img class="feed" src="/video_feed/{w.cam_id}" alt="{w.name} live view">'
+            name_attr = _html.escape(w.name, quote=True)
+            tiles += (f'<div class="feedtile cctile" data-cam-name="{name_attr}"><div class="feedwrap">'
+                      f'<img class="feed" src="/video_feed/{w.cam_id}" alt="{name_attr} live view">'
+                      f'<span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>'
+                      f'<span class="cclab">CAM {i + 1:02d}<span>{name_attr}</span></span>'
                       f'<span class="pill p3 rec{rec}" data-rec-cam="{i}">&#9679; REC</span>'
+                      f'<span class="ccdet" hidden></span>'
                       f'<div class="camoff{off}" data-off-cam="{i}"><b>Camera off</b>'
                       f'<span>CAPHY isn\'t watching here</span>'
                       f'<button type="button" class="btn" onclick="caphyResumeCam({i})">Turn on</button></div>'
-                      f'</div><div class="feedcap">{w.name}</div></div>')
-        feed = f'<div class="feedgrid">{tiles}</div>'
-        feed_title = " &mdash; " + workers[0].name
+                      f'</div></div>')
+        feed = f'<div class="feedgrid ccwall{" one" if len(workers) == 1 else ""}">{tiles}</div>'
     else:
-        feed = '<div style="color:var(--dim)">No cameras running</div>'
-        feed_title = ""
+        feed = '<div style="color:var(--dim);padding:6px 0">No cameras running</div>'
 
     # ---- recent alerts list ----
     # id="recentAlerts" on both versions: the page script adds new alerts
@@ -3531,44 +3582,65 @@ def dashboard():
         for a in recent:
             t = a["tier"] or 1
             event = "Person detected" if a["tier"] else "Movement (no person)"
+            cam = a["camera"] if "camera" in a.keys() and a["camera"] else ""
+            where = f" &middot; {_html.escape(cam)}" if cam else ""
             alerts_html += (
                 f'<div class="arow t{t}">'
                 f'<div class="av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/>'
                 f'<path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg></div>'
                 f'<div class="txt"><div class="tt">{tier_pill(t)}</div>'
-                f'<div class="ss">{event} &middot; {a["distance_m"]} m away</div></div>'
+                f'<div class="ss">{event}{where} &middot; {a["distance_m"]} m away</div></div>'
                 f'<div class="tm">{ago(a["timestamp"])}</div></div>')
         alerts_html += "</div>"
     else:
         alerts_html = '<div id="recentAlerts" style="color:var(--dim);font-size:13px">No alerts yet</div>'
 
-    # ---- 24h threat chart (hover a bar to see the hour + alert count) ----
-    maxh = max(hours.values()) if hours else 1
+    # ---- last 24 hours: one bar per hour ending now. A bar with alerts
+    # links to Alert History searched to that hour (timestamps are stored as
+    # "2026-10-29T17:42:33", so q=2026-10-29T17 matches the hour). The top
+    # edge shows the worst tier in it (yellow Tier 2, red Tier 3). ----
+    now = datetime.now()
+    keys = [(now - timedelta(hours=23 - k)).strftime("%Y-%m-%dT%H") for k in range(24)]
+    maxh = max([hours24.get(k, (0, 0))[0] for k in keys] or [0]) or 1
     bars = ""
-    for h in range(24):
-        c = hours.get(h, 0)
-        cls = "bar hot" if (c and c >= maxh) else ("bar warm" if c >= maxh * 0.5 and c else "bar")
-        pct = int(100 * c / maxh) if maxh else 0
+    for k in keys:
+        c, worst = hours24.get(k, (0, 0))
+        hh = k[-2:] + ":00"
         plural = "" if c == 1 else "s"
-        bars += (f'<div class="{cls}" style="--h:{max(pct,4)}%">'
-                 f'<span class="bartip"><b>{h:02d}:00</b> &middot; {c} alert{plural}</span></div>')
+        cls = "tlb" + (" x" if worst >= 3 else " w" if worst == 2 else "") + (" now" if k == keys[-1] else "")
+        style = f"--h:{max(6, int(100 * c / maxh))}%" if c else "--h:3%"
+        if c:
+            bars += (f'<a class="{cls}" style="{style}" href="/history?q={k}" aria-label="{hh}, {c} alert{plural}">'
+                     f'<span class="tltip">{hh} &middot; {c} alert{plural}</span></a>')
+        else:
+            bars += f'<span class="{cls}" style="{style}"></span>'
+    axis = "".join(f"<span>{keys[k][-2:]}:00</span>" for k in (0, 6, 12, 18)) + "<span>now</span>"
 
     body = f"""
     {cards}
-    <div class="grid2">
-      <div class="panel">
-        <div class="ph"><h2>Live Feed{feed_title}</h2><a class="link" href="/live">Open Live Camera &rarr;</a></div>
-        {feed}
+    <div class="ccgrid">
+      <div class="cccol">
+        <div class="panel">
+          <div class="ph"><h2>Camera wall</h2><a class="link" href="/live">Open Live Camera &rarr;</a></div>
+          {feed}
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>Last 24 hours</h2><span class="phr">click a bar for that hour's alerts</span></div>
+          <div class="tlkey"><span><i></i>alerts</span><span><i class="w"></i>Tier 2</span><span><i class="x"></i>Tier 3</span></div>
+          <div class="tl24">{bars}</div>
+          <div class="tlaxis">{axis}</div>
+        </div>
       </div>
-      <div class="panel">
-        <div class="ph"><h2>Recent Alerts</h2><a class="link" href="/history">View All</a></div>
-        {alerts_html}
+      <div class="cccol">
+        <div class="panel">
+          <div class="ph"><h2>Distance</h2><span class="phr">nearest person</span></div>
+          {radar}
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>Recent Alerts</h2><a class="link" href="/history">View All</a></div>
+          {alerts_html}
+        </div>
       </div>
-    </div>
-    <div class="panel" style="margin-top:16px">
-      <div class="ph"><h2>Threat Activity</h2><span style="color:var(--muted);font-size:12px">Last 24 hours</span></div>
-      <div class="chart">{bars}</div>
-      <div class="axis"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
     </div>"""
     return page("Overview", "/", body,
                 subtitle='Live &middot; updates every 2 s')

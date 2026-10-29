@@ -844,6 +844,85 @@ html:not([data-siren=true]) .sirenbar .hold{display:none}
 @media (max-width:1280px){.header .ht .sub{display:none}}
 @media (max-width:1100px){.clock{display:none}.cmdkbtn{min-width:0}.cmdkbtn span,.cmdkbtn kbd{display:none}}
 
+/* ===================== COMMAND-CENTER OVERVIEW =====================
+   Part 2 of the approved mockup (dashboard() in server.py): the status
+   sentence with quick actions, a camera wall with corner brackets, the
+   distance radar and a clickable 24-hour timeline. */
+@media (min-width:801px){.hero{align-items:center}}   /* narrower, the 800px rule stacks it left-aligned */
+.hero .htxt{min-width:0}
+.hero .hqa{margin-left:auto;display:flex;gap:8px;align-items:center;flex-shrink:0}
+.hero .hqa .btn{height:40px;padding:0 16px;border:1px solid var(--line2);border-radius:9px;color:var(--text);font-size:13px}
+.heroarm{min-width:170px;height:40px;border-radius:9px;background:var(--text);color:var(--ink);border:1px solid var(--text)}
+.heroarm.armed{background:transparent;color:var(--text);border-color:var(--line2)}
+.ccgrid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.cccol{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel .ph .phr{font:12px var(--mono);color:var(--dim)}
+
+/* camera wall */
+.ccwall{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ccwall.one{grid-template-columns:minmax(0,1fr)}
+.cctile .feedwrap{cursor:pointer;border:1px solid var(--line);transition:border-color .3s}
+.cctile.hasp .feedwrap{border-color:var(--c)}
+.cctile .brk{position:absolute;z-index:2;width:14px;height:14px;border:0 solid rgba(236,234,242,.6);pointer-events:none}
+.cctile .brk.tl{top:8px;left:8px;border-top-width:2px;border-left-width:2px}
+.cctile .brk.tr{top:8px;right:8px;border-top-width:2px;border-right-width:2px}
+.cctile .brk.bl{bottom:8px;left:8px;border-bottom-width:2px;border-left-width:2px}
+.cctile .brk.br{bottom:8px;right:8px;border-bottom-width:2px;border-right-width:2px}
+.cctile.hasp .brk{border-color:var(--c)}
+.cclab{position:absolute;z-index:2;top:10px;left:28px;font:600 10.5px var(--mono);letter-spacing:1.2px;color:var(--text);
+  background:rgba(11,10,16,.72);padding:2px 6px;border-radius:4px}
+.cclab span{color:var(--muted);margin-left:6px}
+.cctile .feedwrap .rec{top:9px;right:28px;z-index:2}
+.ccdet{position:absolute;z-index:2;left:28px;bottom:10px;font:700 10px var(--mono);letter-spacing:.6px;color:var(--ink);background:var(--c);
+  padding:2px 6px;border-radius:4px}
+.ccdet[hidden]{display:none}
+/* the Camera-off cover sits under the brackets and name, so an off camera still reads as "CAM 01" */
+.cctile .camoff{z-index:1}
+
+/* distance radar - zones tinted by what each tier means (status) */
+.radar{display:block;width:100%;height:auto;padding:6px 14px 0}
+.radar .rz{fill:var(--s2)}
+.radar .rz2{fill:rgba(242,193,78,.07)}
+.radar .rz3{fill:rgba(255,77,94,.10)}
+.radar .rr{fill:none;stroke:var(--line2);stroke-width:1}
+.radar text{font:500 9px var(--mono);fill:var(--dim)}
+.radar .cambox{fill:var(--text)}
+.radar .sweep{transform-origin:150px 150px;animation:radarsweep 4s linear infinite}
+.radar .sweep line{stroke:var(--c);stroke-width:1.5;opacity:.45}
+@keyframes radarsweep{from{transform:rotate(-90deg)}to{transform:rotate(90deg)}}
+html[data-level=idle] .radar .sweep,html[data-level=offline] .radar .sweep{display:none}
+.radar .pdot{fill:var(--c);opacity:0;transition:opacity .3s,transform .6s var(--ease)}
+.radar .pdot.on{opacity:1}
+.radar .pdot .ping{animation:radarping 1.6s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes radarping{from{opacity:.7;transform:scale(1)}to{opacity:0;transform:scale(3)}}
+.rlegend{display:flex;justify-content:space-between;gap:10px;font:11.5px var(--mono);color:var(--muted);padding:8px 14px 2px}
+
+/* last 24 hours: bars are counts (neutral); the top edge is the worst tier */
+.tlkey{display:flex;gap:14px;font:11px var(--mono);color:var(--muted);margin:2px 0 8px}
+.tlkey i{display:inline-block;width:10px;height:3px;vertical-align:middle;margin-right:5px;background:var(--line2)}
+.tlkey i.w{background:var(--yellow)}.tlkey i.x{background:var(--red)}
+.tl24{display:flex;align-items:flex-end;gap:3px;height:80px}
+.tlb{flex:1;position:relative;height:100%;display:flex;align-items:flex-end;border-radius:3px}
+.tlb::after{content:"";width:100%;height:var(--h,3%);background:var(--line2);border-radius:2px;transition:background .15s}
+.tlb.w::after{box-shadow:inset 0 3px 0 var(--yellow)}
+.tlb.x::after{box-shadow:inset 0 3px 0 var(--red)}
+a.tlb:hover::after,a.tlb:focus-visible::after{background:var(--muted)}
+a.tlb:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.tlb.now::before{content:"";position:absolute;left:50%;bottom:-7px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--text)}
+.tltip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;z-index:3;
+  background:var(--s3);border:1px solid var(--line2);border-radius:6px;padding:3px 8px;font:11px var(--mono);color:var(--text)}
+a.tlb:hover .tltip,a.tlb:focus-visible .tltip{display:block}
+.tlaxis{display:flex;justify-content:space-between;font:10.5px var(--mono);color:var(--dim);margin-top:10px}
+
+@media (max-width:1100px){.ccgrid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){
+  .hero{flex-wrap:wrap;gap:14px}
+  .hero .hqa{margin-left:0;width:100%}
+  .hero .hqa .heroarm{flex:1;min-width:0}
+  .ccwall{grid-template-columns:minmax(0,1fr)}
+  .tl24{gap:2px}
+}
+
 /* ===================== PHONE / NARROW WIDTH =====================
    Below 900px the fixed 230px sidebar becomes a slide-in drawer opened
    from the header's menu button (base.html), and multi-column layouts
